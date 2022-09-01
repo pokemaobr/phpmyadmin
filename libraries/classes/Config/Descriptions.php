@@ -10,7 +10,6 @@ namespace PhpMyAdmin\Config;
 use PhpMyAdmin\Sanitize;
 
 use function __;
-use function htmlspecialchars;
 use function sprintf;
 use function str_replace;
 
@@ -54,18 +53,38 @@ class Descriptions
         return Sanitize::sanitizeMessage($value);
     }
 
+    /**
+     * @return array<string, string>
+     */
     private static function getComments(): array
     {
-        return [
+        /** @var array<string, string> $commentsMap */
+        static $commentsMap = [];
+
+        if ($commentsMap !== []) {
+            return $commentsMap;
+        }
+
+        return $commentsMap = [
             'MaxDbList_cmt' => __('Users cannot set a higher value'),
             'MaxTableList_cmt' => __('Users cannot set a higher value'),
             'QueryHistoryMax_cmt' => __('Users cannot set a higher value'),
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     private static function getDescriptions(): array
     {
-        return [
+        /** @var array<string, string> $descriptionsMap */
+        static $descriptionsMap = [];
+
+        if ($descriptionsMap !== []) {
+            return $descriptionsMap;
+        }
+
+        return $descriptionsMap = [
             'AllowArbitraryServer_desc' => __(
                 'If enabled, user can enter any MySQL server in login form for cookie auth.'
             ),
@@ -582,9 +601,19 @@ class Descriptions
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
     private static function getNames(): array
     {
-        return [
+        /** @var array<string, string> $namesMap */
+        static $namesMap = [];
+
+        if ($namesMap !== []) {
+            return $namesMap;
+        }
+
+        return $namesMap = [
             'AllowArbitraryServer_name' => __('Allow login to any MySQL server'),
             'ArbitraryServerRegexp_name' => __('Restrict login to MySQL server'),
             'AllowThirdPartyFraming_name' => __('Allow third party framing'),
@@ -623,10 +652,7 @@ class Descriptions
             'DisplayServersList_name' => __('Display servers as a list'),
             'DisableMultiTableMaintenance_name' => __('Disable multi table maintenance'),
             'ExecTimeLimit_name' => __('Maximum execution time'),
-            'Export_lock_tables_name' => sprintf(
-                __('Use %s statement'),
-                htmlspecialchars('<code>LOCK TABLES</code>')
-            ),
+            'Export_lock_tables_name' => __('Use [code]LOCK TABLES[/code] statement'),
             'Export_asfile_name' => __('Save as file'),
             'Export_charset_name' => __('Character set of the file'),
             'Export_codegen_format_name' => __('Format'),
@@ -677,6 +703,7 @@ class Descriptions
             'Export_quick_export_onserver_name' => __('Save on server'),
             'Export_quick_export_onserver_overwrite_name' => __('Overwrite existing file(s)'),
             'Export_remember_file_template_name' => __('Remember filename template'),
+            'Export_remove_definer_from_definitions_name' => __('Remove DEFINER clause from definitions'),
             'Export_sql_auto_increment_name' => __('Add AUTO_INCREMENT value'),
             'Export_sql_backquotes_name' => __('Enclose table and column names with backquotes'),
             'Export_sql_compatibility_name' => __('SQL compatibility mode'),

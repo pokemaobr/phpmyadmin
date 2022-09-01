@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Database;
 
+use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Server\Privileges;
@@ -27,11 +28,10 @@ class PrivilegesController extends AbstractController
     public function __construct(
         ResponseRenderer $response,
         Template $template,
-        string $db,
         Privileges $privileges,
         DatabaseInterface $dbi
     ) {
-        parent::__construct($response, $template, $db);
+        parent::__construct($response, $template);
         $this->privileges = $privileges;
         $this->dbi = $dbi;
     }
@@ -41,9 +41,8 @@ class PrivilegesController extends AbstractController
      */
     public function __invoke(array $params): string
     {
-        global $cfg, $text_dir;
-
-        $scriptName = Util::getScriptNameForOption($cfg['DefaultTabDatabase'], 'database');
+        $GLOBALS['text_dir'] = $GLOBALS['text_dir'] ?? null;
+        $scriptName = Util::getScriptNameForOption($GLOBALS['cfg']['DefaultTabDatabase'], 'database');
 
         $privileges = [];
         if ($this->dbi->isSuperUser()) {
@@ -54,7 +53,7 @@ class PrivilegesController extends AbstractController
             'is_superuser' => $this->dbi->isSuperUser(),
             'db' => $params['checkprivsdb'],
             'database_url' => $scriptName,
-            'text_dir' => $text_dir,
+            'text_dir' => $GLOBALS['text_dir'],
             'is_createuser' => $this->dbi->isCreateUser(),
             'is_grantuser' => $this->dbi->isGrantUser(),
             'privileges' => $privileges,

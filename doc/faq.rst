@@ -1532,7 +1532,7 @@ create the example tables:
 To setup appropriate links and display information:
 
 * on table "REL\_persons" click Structure, then Relation view
-* for "town\_code", choose from dropdowns, "mydb", "REL\_towns", "code"
+* for "town\_code", choose from dropdowns, "mydb", "REL\_towns", "town\_code"
   for foreign database, table and column respectively
 * for "country\_code", choose  from dropdowns, "mydb", "REL\_countries",
   "country\_code" for foreign database, table and column respectively
@@ -1905,7 +1905,7 @@ to plot' field. Once you have decided over your criteria, click 'Go'
 to display the plot.
 
 After the plot is generated, you can use the
-mousewheel to zoom in and out of the plot. In addition, panning
+mouse wheel to zoom in and out of the plot. In addition, panning
 feature is enabled to navigate through the plot. You can zoom-in to a
 certain level of detail and use panning to locate your area of
 interest. Clicking on a point opens a dialogue box, displaying field

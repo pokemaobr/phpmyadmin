@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
+use PhpMyAdmin\ConfigStorage\Relation;
+
 use function __;
 use function _ngettext;
 use function count;
@@ -20,7 +22,6 @@ class Console
     /**
      * Whether to display anything
      *
-     * @access private
      * @var bool
      */
     private $isEnabled;
@@ -28,7 +29,6 @@ class Console
     /**
      * Whether we are servicing an ajax request.
      *
-     * @access private
      * @var bool
      */
     private $isAjax;
@@ -44,10 +44,8 @@ class Console
      */
     public function __construct()
     {
-        global $dbi;
-
         $this->isEnabled = true;
-        $this->relation = new Relation($dbi);
+        $this->relation = new Relation($GLOBALS['dbi']);
         $this->template = new Template();
     }
 
@@ -72,44 +70,41 @@ class Console
 
     /**
      * Renders the bookmark content
-     *
-     * @access public
      */
     public static function getBookmarkContent(): string
     {
-        global $dbi;
-
         $template = new Template();
-        $cfgBookmark = Bookmark::getParams($GLOBALS['cfg']['Server']['user']);
-        if ($cfgBookmark) {
-            $bookmarks = Bookmark::getList($dbi, $GLOBALS['cfg']['Server']['user']);
-            $count_bookmarks = count($bookmarks);
-            if ($count_bookmarks > 0) {
-                $welcomeMessage = sprintf(
-                    _ngettext(
-                        'Showing %1$d bookmark (both private and shared)',
-                        'Showing %1$d bookmarks (both private and shared)',
-                        $count_bookmarks
-                    ),
-                    $count_bookmarks
-                );
-            } else {
-                $welcomeMessage = __('No bookmarks');
-            }
-
-            return $template->render('console/bookmark_content', [
-                'welcome_message' => $welcomeMessage,
-                'bookmarks' => $bookmarks,
-            ]);
+        $relation = new Relation($GLOBALS['dbi']);
+        $bookmarkFeature = $relation->getRelationParameters()->bookmarkFeature;
+        if ($bookmarkFeature === null) {
+            return '';
         }
 
-        return '';
+        $bookmarks = Bookmark::getList($bookmarkFeature, $GLOBALS['dbi'], $GLOBALS['cfg']['Server']['user']);
+        $count_bookmarks = count($bookmarks);
+        if ($count_bookmarks > 0) {
+            $welcomeMessage = sprintf(
+                _ngettext(
+                    'Showing %1$d bookmark (both private and shared)',
+                    'Showing %1$d bookmarks (both private and shared)',
+                    $count_bookmarks
+                ),
+                $count_bookmarks
+            );
+        } else {
+            $welcomeMessage = __('No bookmarks');
+        }
+
+        return $template->render('console/bookmark_content', [
+            'welcome_message' => $welcomeMessage,
+            'bookmarks' => $bookmarks,
+        ]);
     }
 
     /**
      * Returns the list of JS scripts required by console
      *
-     * @return array list of scripts
+     * @return string[] list of scripts
      */
     public function getScripts(): array
     {
@@ -118,26 +113,21 @@ class Console
 
     /**
      * Renders the console
-     *
-     * @access public
      */
     public function getDisplay(): string
     {
-        if (! $this->isAjax && $this->isEnabled) {
-            $cfgBookmark = Bookmark::getParams($GLOBALS['cfg']['Server']['user']);
-
-            $image = Html\Generator::getImage('console', __('SQL Query Console'));
-            $_sql_history = $this->relation->getHistory($GLOBALS['cfg']['Server']['user']);
-            $bookmarkContent = static::getBookmarkContent();
-
-            return $this->template->render('console/display', [
-                'cfg_bookmark' => $cfgBookmark,
-                'image' => $image,
-                'sql_history' => $_sql_history,
-                'bookmark_content' => $bookmarkContent,
-            ]);
+        if ($this->isAjax || ! $this->isEnabled) {
+            return '';
         }
 
-        return '';
+        $bookmarkFeature = $this->relation->getRelationParameters()->bookmarkFeature;
+        $_sql_history = $this->relation->getHistory($GLOBALS['cfg']['Server']['user']);
+        $bookmarkContent = static::getBookmarkContent();
+
+        return $this->template->render('console/display', [
+            'has_bookmark_feature' => $bookmarkFeature !== null,
+            'sql_history' => $_sql_history,
+            'bookmark_content' => $bookmarkContent,
+        ]);
     }
 }

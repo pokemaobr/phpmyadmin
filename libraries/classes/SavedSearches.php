@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
+use PhpMyAdmin\ConfigStorage\Features\SavedQueryByExampleSearchesFeature;
+
 use function __;
 use function count;
 use function intval;
@@ -21,13 +23,6 @@ use function min;
  */
 class SavedSearches
 {
-    /**
-     * Global configuration
-     *
-     * @var array
-     */
-    private $config = null;
-
     /**
      * Id
      *
@@ -62,19 +57,6 @@ class SavedSearches
      * @var array
      */
     private $criterias = null;
-
-    /** @var Relation */
-    private $relation;
-
-    /**
-     * @param array    $config   Global configuration
-     * @param Relation $relation Relation instance
-     */
-    public function __construct(array $config, Relation $relation)
-    {
-        $this->setConfig($config);
-        $this->relation = $relation;
-    }
 
     /**
      * Setter of id
@@ -127,30 +109,6 @@ class SavedSearches
     public function getSearchName()
     {
         return $this->searchName;
-    }
-
-    /**
-     * Setter of config
-     *
-     * @param array $config Global configuration
-     *
-     * @return static
-     */
-    public function setConfig(array $config)
-    {
-        $this->config = $config;
-
-        return $this;
-    }
-
-    /**
-     * Getter of config
-     *
-     * @return array
-     */
-    public function getConfig()
-    {
-        return $this->config;
     }
 
     /**
@@ -272,10 +230,8 @@ class SavedSearches
     /**
      * Save the search
      */
-    public function save(): bool
+    public function save(SavedQueryByExampleSearchesFeature $savedQueryByExampleSearchesFeature): bool
     {
-        global $dbi;
-
         if ($this->getSearchName() == null) {
             $message = Message::error(
                 __('Please provide a name for this bookmarked search.')
@@ -302,16 +258,16 @@ class SavedSearches
             exit;
         }
 
-        $savedSearchesTbl = Util::backquote($this->config['cfgRelation']['db']) . '.'
-            . Util::backquote($this->config['cfgRelation']['savedsearches']);
+        $savedSearchesTbl = Util::backquote($savedQueryByExampleSearchesFeature->database) . '.'
+            . Util::backquote($savedQueryByExampleSearchesFeature->savedSearches);
 
         //If it's an insert.
         if ($this->getId() === null) {
             $wheres = [
-                "search_name = '" . $dbi->escapeString($this->getSearchName())
+                "search_name = '" . $GLOBALS['dbi']->escapeString($this->getSearchName())
                 . "'",
             ];
-            $existingSearches = $this->getList($wheres);
+            $existingSearches = $this->getList($savedQueryByExampleSearchesFeature, $wheres);
 
             if (! empty($existingSearches)) {
                 $message = Message::error(
@@ -327,18 +283,15 @@ class SavedSearches
             $sqlQuery = 'INSERT INTO ' . $savedSearchesTbl
                 . '(`username`, `db_name`, `search_name`, `search_data`)'
                 . ' VALUES ('
-                . "'" . $dbi->escapeString($this->getUsername()) . "',"
-                . "'" . $dbi->escapeString($this->getDbname()) . "',"
-                . "'" . $dbi->escapeString($this->getSearchName()) . "',"
-                . "'" . $dbi->escapeString(json_encode($this->getCriterias()))
+                . "'" . $GLOBALS['dbi']->escapeString($this->getUsername()) . "',"
+                . "'" . $GLOBALS['dbi']->escapeString($this->getDbname()) . "',"
+                . "'" . $GLOBALS['dbi']->escapeString($this->getSearchName()) . "',"
+                . "'" . $GLOBALS['dbi']->escapeString(json_encode($this->getCriterias()))
                 . "')";
 
-            $result = (bool) $this->relation->queryAsControlUser($sqlQuery);
-            if (! $result) {
-                return false;
-            }
+            $GLOBALS['dbi']->queryAsControlUser($sqlQuery);
 
-            $this->setId($dbi->insertId());
+            $this->setId($GLOBALS['dbi']->insertId());
 
             return true;
         }
@@ -346,9 +299,9 @@ class SavedSearches
         //Else, it's an update.
         $wheres = [
             'id != ' . $this->getId(),
-            "search_name = '" . $dbi->escapeString($this->getSearchName()) . "'",
+            "search_name = '" . $GLOBALS['dbi']->escapeString($this->getSearchName()) . "'",
         ];
-        $existingSearches = $this->getList($wheres);
+        $existingSearches = $this->getList($savedQueryByExampleSearchesFeature, $wheres);
 
         if (! empty($existingSearches)) {
             $message = Message::error(
@@ -363,21 +316,19 @@ class SavedSearches
 
         $sqlQuery = 'UPDATE ' . $savedSearchesTbl
             . "SET `search_name` = '"
-            . $dbi->escapeString($this->getSearchName()) . "', "
+            . $GLOBALS['dbi']->escapeString($this->getSearchName()) . "', "
             . "`search_data` = '"
-            . $dbi->escapeString(json_encode($this->getCriterias())) . "' "
+            . $GLOBALS['dbi']->escapeString(json_encode($this->getCriterias())) . "' "
             . 'WHERE id = ' . $this->getId();
 
-        return (bool) $this->relation->queryAsControlUser($sqlQuery);
+        return (bool) $GLOBALS['dbi']->queryAsControlUser($sqlQuery);
     }
 
     /**
      * Delete the search
      */
-    public function delete(): bool
+    public function delete(SavedQueryByExampleSearchesFeature $savedQueryByExampleSearchesFeature): bool
     {
-        global $dbi;
-
         if ($this->getId() == null) {
             $message = Message::error(
                 __('Missing information to delete the search.')
@@ -389,22 +340,20 @@ class SavedSearches
             exit;
         }
 
-        $savedSearchesTbl = Util::backquote($this->config['cfgRelation']['db']) . '.'
-            . Util::backquote($this->config['cfgRelation']['savedsearches']);
+        $savedSearchesTbl = Util::backquote($savedQueryByExampleSearchesFeature->database) . '.'
+            . Util::backquote($savedQueryByExampleSearchesFeature->savedSearches);
 
         $sqlQuery = 'DELETE FROM ' . $savedSearchesTbl
-            . "WHERE id = '" . $dbi->escapeString((string) $this->getId()) . "'";
+            . "WHERE id = '" . $GLOBALS['dbi']->escapeString((string) $this->getId()) . "'";
 
-        return (bool) $this->relation->queryAsControlUser($sqlQuery);
+        return (bool) $GLOBALS['dbi']->queryAsControlUser($sqlQuery);
     }
 
     /**
      * Load the current search from an id.
      */
-    public function load(): bool
+    public function load(SavedQueryByExampleSearchesFeature $savedQueryByExampleSearchesFeature): bool
     {
-        global $dbi;
-
         if ($this->getId() == null) {
             $message = Message::error(
                 __('Missing information to load the search.')
@@ -416,17 +365,17 @@ class SavedSearches
             exit;
         }
 
-        $savedSearchesTbl = Util::backquote($this->config['cfgRelation']['db'])
+        $savedSearchesTbl = Util::backquote($savedQueryByExampleSearchesFeature->database)
             . '.'
-            . Util::backquote($this->config['cfgRelation']['savedsearches']);
+            . Util::backquote($savedQueryByExampleSearchesFeature->savedSearches);
         $sqlQuery = 'SELECT id, search_name, search_data '
             . 'FROM ' . $savedSearchesTbl . ' '
-            . "WHERE id = '" . $dbi->escapeString((string) $this->getId()) . "' ";
+            . "WHERE id = '" . $GLOBALS['dbi']->escapeString((string) $this->getId()) . "' ";
 
-        $resList = $this->relation->queryAsControlUser($sqlQuery);
-        $oneResult = $dbi->fetchArray($resList);
+        $resList = $GLOBALS['dbi']->queryAsControlUser($sqlQuery);
+        $oneResult = $resList->fetchAssoc();
 
-        if ($oneResult === false) {
+        if ($oneResult === []) {
             $message = Message::error(__('Error while loading the search.'));
             $response = ResponseRenderer::getInstance();
             $response->setRequestStatus($message->isSuccess());
@@ -448,22 +397,20 @@ class SavedSearches
      *
      * @return array List of saved searches or empty array on failure
      */
-    public function getList(array $wheres = [])
+    public function getList(SavedQueryByExampleSearchesFeature $savedQueryByExampleSearchesFeature, array $wheres = [])
     {
-        global $dbi;
-
         if ($this->getUsername() == null || $this->getDbname() == null) {
             return [];
         }
 
-        $savedSearchesTbl = Util::backquote($this->config['cfgRelation']['db'])
+        $savedSearchesTbl = Util::backquote($savedQueryByExampleSearchesFeature->database)
             . '.'
-            . Util::backquote($this->config['cfgRelation']['savedsearches']);
+            . Util::backquote($savedQueryByExampleSearchesFeature->savedSearches);
         $sqlQuery = 'SELECT id, search_name '
             . 'FROM ' . $savedSearchesTbl . ' '
             . 'WHERE '
-            . "username = '" . $dbi->escapeString($this->getUsername()) . "' "
-            . "AND db_name = '" . $dbi->escapeString($this->getDbname()) . "' ";
+            . "username = '" . $GLOBALS['dbi']->escapeString($this->getUsername()) . "' "
+            . "AND db_name = '" . $GLOBALS['dbi']->escapeString($this->getDbname()) . "' ";
 
         foreach ($wheres as $where) {
             $sqlQuery .= 'AND ' . $where . ' ';
@@ -471,13 +418,8 @@ class SavedSearches
 
         $sqlQuery .= 'order by search_name ASC ';
 
-        $resList = $this->relation->queryAsControlUser($sqlQuery);
+        $resList = $GLOBALS['dbi']->queryAsControlUser($sqlQuery);
 
-        $list = [];
-        while ($oneResult = $dbi->fetchArray($resList)) {
-            $list[$oneResult['id']] = $oneResult['search_name'];
-        }
-
-        return $list;
+        return $resList->fetchAllKeyPair();
     }
 }

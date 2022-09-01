@@ -7,6 +7,7 @@ namespace PhpMyAdmin\Tests;
 use ArrayIterator;
 use PhpMyAdmin\ErrorHandler;
 use PhpMyAdmin\Footer;
+use PhpMyAdmin\Template;
 
 use function json_encode;
 
@@ -24,8 +25,6 @@ class FooterTest extends AbstractTestCase
     /**
      * Sets up the fixture, for example, opens a network connection.
      * This method is called before a test is executed.
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
@@ -53,8 +52,6 @@ class FooterTest extends AbstractTestCase
     /**
      * Tears down the fixture, for example, closes a network connection.
      * This method is called after a test is executed.
-     *
-     * @access protected
      */
     protected function tearDown(): void
     {
@@ -127,8 +124,11 @@ class FooterTest extends AbstractTestCase
     {
         $footer = new Footer();
         $footer->setAjax(true);
+        $template = new Template();
         $this->assertEquals(
-            '',
+            $template->render('modals/function_confirm') . "\n"
+            . $template->render('modals/add_index') . "\n"
+            . $template->render('modals/page_settings') . "\n",
             $footer->getDisplay()
         );
     }
@@ -166,8 +166,12 @@ class FooterTest extends AbstractTestCase
     {
         $footer = new Footer();
         $footer->setMinimal();
+        $template = new Template();
         $this->assertEquals(
-            "  </div>\n  </body>\n</html>\n",
+            $template->render('modals/function_confirm') . "\n"
+            . $template->render('modals/add_index') . "\n"
+            . $template->render('modals/page_settings')
+            . "\n  </div>\n  </body>\n</html>\n",
             $footer->getDisplay()
         );
     }

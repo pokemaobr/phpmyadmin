@@ -43,9 +43,9 @@ class ExportXmlTest extends AbstractTestCase
         $GLOBALS['plugin_param'] = [];
         $GLOBALS['plugin_param']['export_type'] = 'table';
         $GLOBALS['plugin_param']['single_table'] = false;
-        $GLOBALS['cfgRelation']['relation'] = true;
         $GLOBALS['db'] = 'db';
         $GLOBALS['cfg']['Server']['DisableIS'] = true;
+        $GLOBALS['crlf'] = "\n";
         $this->object = new ExportXml();
     }
 
@@ -197,7 +197,7 @@ class ExportXmlTest extends AbstractTestCase
 
         $dbi->expects($this->exactly(3))
             ->method('fetchResult')
-            ->willReturnOnConsecutiveCalls($result, $result, false);
+            ->willReturnOnConsecutiveCalls($result, $result, []);
 
         $dbi->expects($this->once())
             ->method('getTriggers')
@@ -306,7 +306,7 @@ class ExportXmlTest extends AbstractTestCase
 
         $dbi->expects($this->exactly(5))
             ->method('fetchResult')
-            ->willReturnOnConsecutiveCalls($result_1, $result_2, true, $result_3, false);
+            ->willReturnOnConsecutiveCalls($result_1, $result_2, ['table'], $result_3, []);
 
         $dbi->expects($this->any())
             ->method('getTable')

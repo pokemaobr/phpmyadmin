@@ -19,7 +19,6 @@ use function __;
 use function array_key_exists;
 use function is_numeric;
 use function str_replace;
-use function stripslashes;
 
 /**
  * Handles the export for the YAML format
@@ -133,29 +132,30 @@ class ExportYaml extends ExportPlugin
         $sqlQuery,
         array $aliases = []
     ): bool {
-        global $dbi;
-
         $db_alias = $db;
         $table_alias = $table;
         $this->initAlias($aliases, $db_alias, $table_alias);
-        $result = $dbi->query($sqlQuery, DatabaseInterface::CONNECT_USER, DatabaseInterface::QUERY_UNBUFFERED);
+        $result = $GLOBALS['dbi']->query(
+            $sqlQuery,
+            DatabaseInterface::CONNECT_USER,
+            DatabaseInterface::QUERY_UNBUFFERED
+        );
 
-        $columns_cnt = $dbi->numFields($result);
-        $fieldsMeta = $dbi->getFieldsMeta($result) ?? [];
+        $columns_cnt = $result->numFields();
+        $fieldsMeta = $GLOBALS['dbi']->getFieldsMeta($result);
 
         $columns = [];
-        for ($i = 0; $i < $columns_cnt; $i++) {
-            $col_as = $dbi->fieldName($result, $i);
+        foreach ($fieldsMeta as $i => $field) {
+            $col_as = $field->name;
             if (! empty($aliases[$db]['tables'][$table]['columns'][$col_as])) {
                 $col_as = $aliases[$db]['tables'][$table]['columns'][$col_as];
             }
 
-            $columns[$i] = stripslashes($col_as);
+            $columns[$i] = $col_as;
         }
 
-        $buffer = '';
         $record_cnt = 0;
-        while ($record = $dbi->fetchRow($result)) {
+        while ($record = $result->fetchRow()) {
             $record_cnt++;
 
             // Output table name as comment if this is the first record of the table
@@ -204,8 +204,6 @@ class ExportYaml extends ExportPlugin
                 return false;
             }
         }
-
-        $dbi->freeResult($result);
 
         return true;
     }

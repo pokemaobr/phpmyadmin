@@ -21,6 +21,7 @@ use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
+use function bin2hex;
 use function curl_close;
 use function curl_errno;
 use function curl_error;
@@ -36,12 +37,9 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 use function mb_strtolower;
-use function mb_substr;
-use function mt_getrandmax;
 use function preg_match;
-use function random_int;
+use function random_bytes;
 use function reset;
-use function sha1;
 use function sprintf;
 use function strlen;
 use function substr;
@@ -68,7 +66,6 @@ abstract class TestBase extends TestCase
     /**
      * Name of database for the test
      *
-     * @access public
      * @var string
      */
     public $databaseName;
@@ -160,7 +157,7 @@ abstract class TestBase extends TestCase
      */
     protected function createDatabase(): void
     {
-        $this->databaseName = $this->getDbPrefix() . mb_substr(sha1((string) random_int(0, mt_getrandmax())), 0, 7);
+        $this->databaseName = $this->getDbPrefix() . bin2hex(random_bytes(4));
         $this->dbQuery(
             'CREATE DATABASE IF NOT EXISTS `' . $this->databaseName . '`; USE `' . $this->databaseName . '`;'
         );
@@ -672,8 +669,6 @@ abstract class TestBase extends TestCase
             }
         }
 
-        // echo PHP_EOL . 'Query: ' . $query . ', out: ' . (($didSucceed) ? 'yes' : 'no') . PHP_EOL;
-
         reset($handles);
         $lastWindow = current($handles);
         $this->webDriver->switchTo()->window($lastWindow);
@@ -1015,17 +1010,19 @@ abstract class TestBase extends TestCase
     /**
      * Scrolls to a coordinate such that the element with given id is visible
      *
-     * @param string $element_id Id of the element
-     * @param int    $y_offset   Offset from Y-coordinate of element
+     * @param string $elementId Id of the element
+     * @param int    $yOffset   Offset from Y-coordinate of element
      */
-    public function scrollIntoView(string $element_id, int $y_offset = 70): void
+    public function scrollIntoView(string $elementId, int $yOffset = 70): void
     {
         // 70pt offset by-default so that the topmenu does not cover the element
-        $this->webDriver->executeScript(
-            'var position = document.getElementById("'
-            . $element_id . '").getBoundingClientRect();'
-            . 'window.scrollBy(0, position.top-(' . $y_offset . '));'
-        );
+        $script = <<<'JS'
+const elementId = arguments[0];
+const yOffset = arguments[1];
+const position = document.getElementById(elementId).getBoundingClientRect();
+window.scrollBy({left: 0, top: position.top - yOffset, behavior: 'instant'});
+JS;
+        $this->webDriver->executeScript($script, [$elementId, $yOffset]);
     }
 
     /**
@@ -1037,10 +1034,15 @@ abstract class TestBase extends TestCase
      */
     public function scrollToElement(WebDriverElement $element, int $xOffset = 0, int $yOffset = 0): void
     {
-        $this->webDriver->executeScript(
-            'window.scrollBy(' . ($element->getLocation()->getX() + $xOffset)
-            . ', ' . ($element->getLocation()->getY() + $yOffset) . ');'
-        );
+        $script = <<<'JS'
+const leftValue = arguments[0];
+const topValue = arguments[1];
+window.scrollBy({left: leftValue, top: topValue, behavior: 'instant'});
+JS;
+        $this->webDriver->executeScript($script, [
+            $element->getLocation()->getX() + $xOffset,
+            $element->getLocation()->getY() + $yOffset,
+        ]);
     }
 
     /**
@@ -1048,7 +1050,10 @@ abstract class TestBase extends TestCase
      */
     public function scrollToBottom(): void
     {
-        $this->webDriver->executeScript('window.scrollTo(0,document.body.scrollHeight);');
+        $script = <<<'JS'
+window.scrollTo({left: 0, top: document.body.scrollHeight, behavior: 'instant'});
+JS;
+        $this->webDriver->executeScript($script);
     }
 
     /**
@@ -1146,7 +1151,7 @@ abstract class TestBase extends TestCase
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
         curl_exec($ch);
-        if ($ch !== false && curl_errno($ch)) {
+        if (curl_errno($ch)) {
             echo 'Error: ' . curl_error($ch) . PHP_EOL;
         }
 
@@ -1181,7 +1186,7 @@ abstract class TestBase extends TestCase
             echo 'Test failed, get more information here: ' . $proj->automation_session->public_url . PHP_EOL;
         }
 
-        if ($ch !== false && curl_errno($ch)) {
+        if (curl_errno($ch)) {
             echo 'Error: ' . curl_error($ch) . PHP_EOL;
         }
 

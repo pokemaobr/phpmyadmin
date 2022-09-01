@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Controllers\Database;
 
+use PhpMyAdmin\ConfigStorage\Relation;
+use PhpMyAdmin\ConfigStorage\RelationCleanup;
 use PhpMyAdmin\Controllers\Database\StructureController;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\FlashMessages;
 use PhpMyAdmin\Operations;
-use PhpMyAdmin\Relation;
-use PhpMyAdmin\RelationCleanup;
 use PhpMyAdmin\Replication;
 use PhpMyAdmin\Table;
 use PhpMyAdmin\Template;
@@ -95,7 +95,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -143,7 +142,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -175,7 +173,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -231,7 +228,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -256,7 +252,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -291,7 +286,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -330,7 +324,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -367,7 +360,6 @@ class StructureControllerTest extends AbstractTestCase
         $controller = new StructureController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
             $this->relation,
             $this->replication,
             $this->relationCleanup,
@@ -421,17 +413,16 @@ class StructureControllerTest extends AbstractTestCase
      */
     public function testGetValuesForMroongaTable(): void
     {
-        global $containerBuilder;
         parent::loadContainerBuilder();
         parent::loadDbiIntoContainerBuilder();
         $GLOBALS['db'] = 'testdb';
         $GLOBALS['table'] = 'mytable';
 
-        $containerBuilder->setParameter('db', $GLOBALS['db']);
-        $containerBuilder->setParameter('table', $GLOBALS['table']);
+        $GLOBALS['containerBuilder']->setParameter('db', $GLOBALS['db']);
+        $GLOBALS['containerBuilder']->setParameter('table', $GLOBALS['table']);
 
         /** @var StructureController $structureController */
-        $structureController = $containerBuilder->get(StructureController::class);
+        $structureController = $GLOBALS['containerBuilder']->get(StructureController::class);
 
         $this->assertSame(
             [

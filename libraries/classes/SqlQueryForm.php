@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Html\MySQLDocumentation;
 use PhpMyAdmin\Utils\ForeignKey;
 
@@ -63,8 +64,6 @@ class SqlQueryForm
         $display_tab = false,
         $delimiter = ';'
     ) {
-        global $dbi;
-
         if (! $display_tab) {
             $display_tab = 'full';
         }
@@ -91,21 +90,25 @@ class SqlQueryForm
             [$legend, $query, $columns_list] = $this->init($query);
         }
 
-        $cfgBookmark = Bookmark::getParams($GLOBALS['cfg']['Server']['user']);
+        $relation = new Relation($GLOBALS['dbi']);
+        $bookmarkFeature = $relation->getRelationParameters()->bookmarkFeature;
 
         $bookmarks = [];
-        if ($display_tab === 'full') {
-            if ($cfgBookmark) {
-                $bookmark_list = Bookmark::getList($dbi, $GLOBALS['cfg']['Server']['user'], $db);
+        if ($display_tab === 'full' && $bookmarkFeature !== null) {
+            $bookmark_list = Bookmark::getList(
+                $bookmarkFeature,
+                $GLOBALS['dbi'],
+                $GLOBALS['cfg']['Server']['user'],
+                $db
+            );
 
-                foreach ($bookmark_list as $bookmarkItem) {
-                    $bookmarks[] = [
-                        'id' => $bookmarkItem->getId(),
-                        'variable_count' => $bookmarkItem->getVariableCount(),
-                        'label' => $bookmarkItem->getLabel(),
-                        'is_shared' => empty($bookmarkItem->getUser()),
-                    ];
-                }
+            foreach ($bookmark_list as $bookmarkItem) {
+                $bookmarks[] = [
+                    'id' => $bookmarkItem->getId(),
+                    'variable_count' => $bookmarkItem->getVariableCount(),
+                    'label' => $bookmarkItem->getLabel(),
+                    'is_shared' => empty($bookmarkItem->getUser()),
+                ];
             }
         }
 
@@ -116,7 +119,7 @@ class SqlQueryForm
             'textarea_auto_select' => $GLOBALS['cfg']['TextareaAutoSelect'],
             'columns_list' => $columns_list ?? [],
             'codemirror_enable' => $GLOBALS['cfg']['CodemirrorEnable'],
-            'has_bookmark' => $cfgBookmark,
+            'has_bookmark' => $bookmarkFeature !== null,
             'delimiter' => $delimiter,
             'retain_query_box' => $GLOBALS['cfg']['RetainQueryBox'] !== false,
             'is_upload' => $GLOBALS['config']->get('enable_upload'),
@@ -140,8 +143,6 @@ class SqlQueryForm
      */
     public function init($query)
     {
-        global $dbi;
-
         $columns_list = [];
         if (strlen($GLOBALS['db']) === 0) {
             // prepare for server related
@@ -172,7 +173,7 @@ class SqlQueryForm
             // Get the list and number of fields
             // we do a try_query here, because we could be in the query window,
             // trying to synchronize and the table has not yet been created
-            $columns_list = $dbi->getColumns($db, $GLOBALS['table'], null, true);
+            $columns_list = $GLOBALS['dbi']->getColumns($db, $GLOBALS['table'], true);
 
             $scriptName = Util::getScriptNameForOption($GLOBALS['cfg']['DefaultTabTable'], 'table');
             $tmp_tbl_link = '<a href="' . $scriptName . Url::getCommon(['db' => $db, 'table' => $table], '&') . '">';

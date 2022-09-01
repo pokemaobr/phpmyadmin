@@ -2,11 +2,9 @@
  * @fileoverview    functions used for visualizing GIS data
  *
  * @requires    jquery
- * @requires    vendor/jquery/jquery.svg.js
- * @requires    vendor/jquery/jquery.mousewheel.js
  */
 
-/* global drawOpenLayers PASSIVE_EVENT_LISTENERS */ // templates/table/gis_visualization/gis_visualization.twig
+/* global drawOpenLayers */ // templates/table/gis_visualization/gis_visualization.twig
 
 // Constants
 var zoomFactor = 1.5;
@@ -149,6 +147,9 @@ function getRelativeCoords (e) {
     };
 }
 
+/**
+ * @param {WheelEvent} event
+ */
 function onGisMouseWheel (event) {
     if (event.deltaY === 0) {
         return;
@@ -170,7 +171,7 @@ function onGisMouseWheel (event) {
  *
  * Actions Ajaxified here:
  *
- * Zooming in and zooming out on mousewheel movement.
+ * Zooming in and zooming out on mouse wheel movement.
  * Panning the visualization on dragging.
  * Zooming in on double clicking.
  * Zooming out on clicking the zoom out button.
@@ -195,11 +196,7 @@ AJAX.registerTeardown('table/gis_visualization.js', function () {
     $(document).off('click', '#up_arrow');
     $(document).off('click', '#down_arrow');
     $('.vector').off('mousemove').off('mouseout');
-    $('#placeholder').get(0).removeEventListener(
-        'wheel',
-        onGisMouseWheel,
-        PASSIVE_EVENT_LISTENERS ? { passive: false } : undefined
-    );
+    $('#placeholder').get(0).removeEventListener('wheel', onGisMouseWheel, { passive: false });
     if (map) {
         // Removes ol.Map's resize listener from window
         map.setTarget(null);
@@ -230,11 +227,7 @@ AJAX.registerOnload('table/gis_visualization.js', function () {
         }
     });
 
-    $('#placeholder').get(0).addEventListener(
-        'wheel',
-        onGisMouseWheel,
-        PASSIVE_EVENT_LISTENERS ? { passive: false } : undefined
-    );
+    $('#placeholder').get(0).addEventListener('wheel', onGisMouseWheel, { passive: false });
 
     var dragX = 0;
     var dragY = 0;

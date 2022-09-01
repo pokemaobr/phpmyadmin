@@ -22,7 +22,6 @@ class ResponseRenderer extends \PhpMyAdmin\ResponseRenderer
     /**
      * HTML data to be used in the response
      *
-     * @access private
      * @var string
      */
     protected $htmlString;
@@ -31,7 +30,6 @@ class ResponseRenderer extends \PhpMyAdmin\ResponseRenderer
      * An array of JSON key-value pairs
      * to be sent back for ajax requests
      *
-     * @access private
      * @var array
      */
     protected $json;
@@ -50,6 +48,9 @@ class ResponseRenderer extends \PhpMyAdmin\ResponseRenderer
         $this->isAjax = false;
 
         $GLOBALS['lang'] = 'en';
+        $GLOBALS['server'] = $GLOBALS['server'] ?? 1;
+        $GLOBALS['text_dir'] = $GLOBALS['text_dir'] ?? 'ltr';
+        $GLOBALS['PMA_PHP_SELF'] = $GLOBALS['PMA_PHP_SELF'] ?? 'index.php';
         $this->header = new Header();
         $this->footer = new Footer();
     }

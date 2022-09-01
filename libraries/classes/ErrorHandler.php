@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PhpMyAdmin;
 
 use ErrorException;
+use Throwable;
 
 use function __;
 use function array_splice;
@@ -14,6 +15,7 @@ use function error_reporting;
 use function headers_sent;
 use function htmlspecialchars;
 use function set_error_handler;
+use function set_exception_handler;
 use function trigger_error;
 
 use const E_COMPILE_ERROR;
@@ -68,6 +70,7 @@ class ErrorHandler
          * rely on PHPUnit doing it's own error handling which we break here.
          */
         if (! defined('TESTSUITE')) {
+            set_exception_handler([$this, 'handleException']);
             set_error_handler([$this, 'handleError']);
         }
 
@@ -191,8 +194,6 @@ class ErrorHandler
         string $errfile,
         int $errline
     ): void {
-        global $cfg;
-
         if (Util::isErrorReportingAvailable()) {
             /**
             * Check if Error Control Operator (@) was used, but still show
@@ -204,7 +205,11 @@ class ErrorHandler
                 $isSilenced = error_reporting() == 0;
             }
 
-            if (isset($cfg['environment']) && $cfg['environment'] === 'development' && ! $isSilenced) {
+            if (
+                isset($GLOBALS['cfg']['environment'])
+                && $GLOBALS['cfg']['environment'] === 'development'
+                && ! $isSilenced
+            ) {
                 throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
             }
 
@@ -222,6 +227,22 @@ class ErrorHandler
         }
 
         $this->addError($errstr, $errno, $errfile, $errline, true);
+    }
+
+    /**
+     * Hides exception if it's not in the development environment.
+     *
+     * @throws Throwable
+     */
+    public function handleException(Throwable $exception): void
+    {
+        $config = $GLOBALS['config'] ?? null;
+        $environment = $config instanceof Config ? $config->get('environment') : 'production';
+        if ($environment !== 'development') {
+            return;
+        }
+
+        throw $exception;
     }
 
     /**
@@ -609,6 +630,6 @@ class ErrorHandler
 
         // The errors are already sent from the response.
         // Just focus on errors division upon load event.
-        $response->getFooter()->getScripts()->addCode($jsCode);
+        $response->getFooterScripts()->addCode($jsCode);
     }
 }

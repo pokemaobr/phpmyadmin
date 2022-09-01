@@ -6,8 +6,6 @@ namespace PhpMyAdmin\Tests\Selenium\Database;
 
 use PhpMyAdmin\Tests\Selenium\TestBase;
 
-use function sleep;
-
 /**
  * @coversNothing
  */
@@ -64,13 +62,13 @@ class OperationsTest extends TestBase
 
         $new_db_name = $this->databaseName . 'rename';
 
-        $this->scrollIntoView('create_table_form_minimal');
+        $this->scrollIntoView('createTableMinimalForm');
         $this->byCssSelector('form#rename_db_form input[name=newname]')
             ->sendKeys($new_db_name);
 
         $this->byCssSelector("form#rename_db_form input[type='submit']")->click();
 
-        $this->waitForElement('cssSelector', 'button.submitOK')->click();
+        $this->waitForElement('id', 'functionConfirmOkButton')->click();
 
         $this->waitForElement(
             'xpath',
@@ -110,8 +108,6 @@ class OperationsTest extends TestBase
         $this->byCssSelector('form#copy_db_form input[name=newname]')
             ->sendKeys($new_db_name);
 
-        $this->scrollIntoView('copy_db_form', -150);
-        sleep(1);
         $this->scrollIntoView('copy_db_form', -150);
         $this->byCssSelector('form#copy_db_form input[name="submit_copy"]')->click();
 

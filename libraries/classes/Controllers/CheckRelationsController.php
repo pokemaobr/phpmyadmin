@@ -1,17 +1,19 @@
 <?php
-/**
- * Displays status of phpMyAdmin configuration storage
- */
 
 declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Http\ServerRequest;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
 
+use const SQL_DIR;
+
+/**
+ * Displays status of phpMyAdmin configuration storage
+ */
 class CheckRelationsController extends AbstractController
 {
     /** @var Relation */
@@ -25,8 +27,6 @@ class CheckRelationsController extends AbstractController
 
     public function __invoke(ServerRequest $request): void
     {
-        global $db;
-
         /** @var string|null $createPmaDb */
         $createPmaDb = $request->getParsedBodyParam('create_pmadb');
         /** @var string|null $fixAllPmaDb */
@@ -43,17 +43,25 @@ class CheckRelationsController extends AbstractController
 
         // If request for creating all PMA tables.
         if (isset($fixAllPmaDb)) {
-            $this->relation->fixPmaTables($db);
+            $this->relation->fixPmaTables($GLOBALS['db']);
         }
 
         // If request for creating missing PMA tables.
         if (isset($fixPmaDb)) {
-            $cfgRelation = $this->relation->getRelationsParam();
-            $this->relation->fixPmaTables($cfgRelation['db']);
+            $relationParameters = $this->relation->getRelationParameters();
+            $this->relation->fixPmaTables((string) $relationParameters->db);
         }
 
-        // Do not use any previous $cfgRelation value as it could have changed after a successfull fixPmaTables()
-        $cfgRelation = $this->relation->getRelationsParam();
-        $this->response->addHTML($this->relation->getRelationsParamDiagnostic($cfgRelation));
+        // Do not use any previous $relationParameters value as it could have changed after a successful fixPmaTables()
+        $relationParameters = $this->relation->getRelationParameters();
+
+        $this->render('relation/check_relations', [
+            'db' => $GLOBALS['db'],
+            'zero_conf' => $GLOBALS['cfg']['ZeroConf'],
+            'relation_parameters' => $relationParameters->toArray(),
+            'sql_dir' => SQL_DIR,
+            'config_storage_database_name' => $cfgStorageDbName,
+            'are_config_storage_tables_defined' => $this->relation->arePmadbTablesDefined(),
+        ]);
     }
 }

@@ -37,23 +37,20 @@ class BinlogController extends AbstractController
 
         $this->binaryLogs = $this->dbi->fetchResult(
             'SHOW MASTER LOGS',
-            'Log_name',
-            null,
-            DatabaseInterface::CONNECT_USER,
-            DatabaseInterface::QUERY_STORE
+            'Log_name'
         );
     }
 
     public function __invoke(): void
     {
-        global $cfg, $errorUrl;
+        $GLOBALS['errorUrl'] = $GLOBALS['errorUrl'] ?? null;
 
         $params = [
             'log' => $_POST['log'] ?? null,
             'pos' => $_POST['pos'] ?? null,
             'is_full_query' => $_POST['is_full_query'] ?? null,
         ];
-        $errorUrl = Url::getFromRoute('/');
+        $GLOBALS['errorUrl'] = Url::getFromRoute('/');
 
         if ($this->dbi->isSuperUser()) {
             $this->dbi->selectDb('mysql');
@@ -72,21 +69,18 @@ class BinlogController extends AbstractController
             $urlParams['is_full_query'] = 1;
         }
 
-        $sqlQuery = $this->getSqlQuery($params['log'] ?? '', $position, (int) $cfg['MaxRows']);
+        $sqlQuery = $this->getSqlQuery($params['log'] ?? '', $position, (int) $GLOBALS['cfg']['MaxRows']);
         $result = $this->dbi->query($sqlQuery);
 
-        $numRows = 0;
-        if (isset($result) && $result) {
-            $numRows = $this->dbi->numRows($result);
-        }
+        $numRows = $result->numRows();
 
         $previousParams = $urlParams;
         $fullQueriesParams = $urlParams;
         $nextParams = $urlParams;
         if ($position > 0) {
             $fullQueriesParams['pos'] = $position;
-            if ($position > $cfg['MaxRows']) {
-                $previousParams['pos'] = $position - $cfg['MaxRows'];
+            if ($position > $GLOBALS['cfg']['MaxRows']) {
+                $previousParams['pos'] = $position - $GLOBALS['cfg']['MaxRows'];
             }
         }
 
@@ -95,14 +89,11 @@ class BinlogController extends AbstractController
             unset($fullQueriesParams['is_full_query']);
         }
 
-        if ($numRows >= $cfg['MaxRows']) {
-            $nextParams['pos'] = $position + $cfg['MaxRows'];
+        if ($numRows >= $GLOBALS['cfg']['MaxRows']) {
+            $nextParams['pos'] = $position + $GLOBALS['cfg']['MaxRows'];
         }
 
-        $values = [];
-        while ($value = $this->dbi->fetchAssoc($result)) {
-            $values[] = $value;
-        }
+        $values = $result->fetchAllAssoc();
 
         $this->render('server/binlog/index', [
             'url_params' => $urlParams,
@@ -111,7 +102,7 @@ class BinlogController extends AbstractController
             'sql_message' => Generator::getMessage(Message::success(), $sqlQuery),
             'values' => $values,
             'has_previous' => $position > 0,
-            'has_next' => $numRows >= $cfg['MaxRows'],
+            'has_next' => $numRows >= $GLOBALS['cfg']['MaxRows'],
             'previous_params' => $previousParams,
             'full_queries_params' => $fullQueriesParams,
             'next_params' => $nextParams,

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Database\DatabaseList;
+use PhpMyAdmin\DatabaseInterface;
+use PhpMyAdmin\Dbal\ResultInterface;
 use PhpMyAdmin\Query\Utilities;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\SystemDatabase;
 use PhpMyAdmin\Utils\SessionCache;
+use stdClass;
 
 /**
  * @covers \PhpMyAdmin\DatabaseInterface
@@ -165,7 +168,7 @@ class DatabaseInterfaceTest extends AbstractTestCase
         );
         $GLOBALS['db'] = '';
         $GLOBALS['cfg']['Server']['only_db'] = [];
-        $this->dbi->postConnectControl();
+        $this->dbi->postConnectControl(new Relation($this->dbi));
         $this->assertInstanceOf(DatabaseList::class, $GLOBALS['dblist']);
     }
 
@@ -480,438 +483,222 @@ class DatabaseInterfaceTest extends AbstractTestCase
         $this->assertEquals($expected, $actual);
     }
 
-    public function testInitRelationParamsCacheDefaultDbNameDbDoesNotExist(): void
+    /**
+     * Test for queryAsControlUser
+     */
+    public function testQueryAsControlUser(): void
     {
-        parent::setGlobalDbi();
+        $sql = 'insert into PMA_bookmark A,B values(1, 2)';
+        $this->dummyDbi->addResult($sql, [true]);
+        $this->dummyDbi->addResult($sql, [true]);
+        $this->dummyDbi->addResult('Invalid query', false);
 
-        $GLOBALS['db'] = '';
-        $GLOBALS['server'] = 0;
-
-        $this->dummyDbi->removeDefaultResults();
-        $this->dummyDbi->addResult('SHOW TABLES FROM `phpmyadmin`;', false);
-
-        $this->dbi->initRelationParamsCache();
-
-        $this->assertAllQueriesConsumed();
-    }
-
-    public function testInitRelationParamsCacheDefaultDbNameDbExistsServerZero(): void
-    {
-        parent::setGlobalDbi();
-
-        $GLOBALS['db'] = '';
-        $GLOBALS['server'] = 0;
-
-        $this->dummyDbi->removeDefaultResults();
-        $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `phpmyadmin`;',
-            [
-                ['pma__userconfig'],
-            ],
-            ['Tables_in_phpmyadmin']
+        $this->assertInstanceOf(
+            ResultInterface::class,
+            $this->dbi->queryAsControlUser($sql)
         );
-
-        $this->dbi->initRelationParamsCache();
-
-        $this->assertArrayHasKey('relation', $_SESSION, 'The cache is expected to be filled');
-
-        // Should all be false for server = 0
-        $this->assertSame([
-            'version' => $_SESSION['relation'][$GLOBALS['server']]['version'],
-            'relwork' => false,
-            'displaywork' => false,
-            'bookmarkwork' => false,
-            'pdfwork' => false,
-            'commwork' => false,
-            'mimework' => false,
-            'historywork' => false,
-            'recentwork' => false,
-            'favoritework' => false,
-            'uiprefswork' => false,
-            'trackingwork' => false,
-            'userconfigwork' => false,
-            'menuswork' => false,
-            'navwork' => false,
-            'savedsearcheswork' => false,
-            'centralcolumnswork' => false,
-            'designersettingswork' => false,
-            'exporttemplateswork' => false,
-            'allworks' => false,
-            'user' => null,
-            'db' => null,
-        ], $_SESSION['relation'][$GLOBALS['server']]);
-
-        $this->assertEquals([
-            'userconfig' => 'pma__userconfig',
-            'pmadb' => false,// This is the expected value for server = 0
-        ], $GLOBALS['cfg']['Server']);
-        $this->assertAllQueriesConsumed();
+        $this->assertInstanceOf(
+            ResultInterface::class,
+            $this->dbi->tryQueryAsControlUser($sql)
+        );
+        $this->assertFalse($this->dbi->tryQueryAsControlUser('Invalid query'));
     }
 
-    public function testInitRelationParamsCacheDefaultDbNameDbExistsFirstServer(): void
+    public function testGetDatabasesFullDisabledISAndSortIntColumn(): void
     {
         parent::setGlobalDbi();
 
         $GLOBALS['db'] = '';
+        $GLOBALS['table'] = '';
         $GLOBALS['server'] = 1;
-        $GLOBALS['cfg']['Server']['user'] = '';
-        $GLOBALS['cfg']['Server']['pmadb'] = '';
-        $GLOBALS['cfg']['Server']['bookmarktable'] = '';
-        $GLOBALS['cfg']['Server']['relation'] = '';
-        $GLOBALS['cfg']['Server']['table_info'] = '';
-        $GLOBALS['cfg']['Server']['table_coords'] = '';
-        $GLOBALS['cfg']['Server']['column_info'] = '';
-        $GLOBALS['cfg']['Server']['pdf_pages'] = '';
-        $GLOBALS['cfg']['Server']['history'] = '';
-        $GLOBALS['cfg']['Server']['recent'] = '';
-        $GLOBALS['cfg']['Server']['favorite'] = '';
-        $GLOBALS['cfg']['Server']['table_uiprefs'] = '';
-        $GLOBALS['cfg']['Server']['tracking'] = '';
-        $GLOBALS['cfg']['Server']['userconfig'] = '';
-        $GLOBALS['cfg']['Server']['users'] = '';
-        $GLOBALS['cfg']['Server']['usergroups'] = '';
-        $GLOBALS['cfg']['Server']['navigationhiding'] = '';
-        $GLOBALS['cfg']['Server']['savedsearches'] = '';
-        $GLOBALS['cfg']['Server']['central_columns'] = '';
-        $GLOBALS['cfg']['Server']['designer_settings'] = '';
-        $GLOBALS['cfg']['Server']['export_templates'] = '';
-
+        $GLOBALS['cfg']['Server']['DisableIS'] = true;
+        $GLOBALS['cfg']['NaturalOrder'] = true;
+        $GLOBALS['dblist'] = new stdClass();
+        $GLOBALS['dblist']->databases = [
+            'db1',
+            'db2',
+        ];
         $this->dummyDbi->removeDefaultResults();
         $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `phpmyadmin`;',
+            'SELECT @@collation_database',
             [
-                ['pma__userconfig'],
+                ['utf8_general_ci'],
             ],
-            ['Tables_in_phpmyadmin']
+            ['@@collation_database']
         );
-
         $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `phpmyadmin`',
+            'SELECT @@collation_database',
             [
-                ['pma__userconfig'],
+                ['utf8_general_ci'],
             ],
-            ['Tables_in_phpmyadmin']
+            ['@@collation_database']
         );
-
         $this->dummyDbi->addResult(
-            'SELECT NULL FROM `pma__userconfig` LIMIT 0',
-            [
-                ['NULL'],
-            ],
-            ['NULL']
-        );
-
-        $this->dummyDbi->addSelectDb('phpmyadmin');
-        $this->dbi->initRelationParamsCache();
-        $this->assertAllSelectsConsumed();
-
-        $this->assertArrayHasKey('relation', $_SESSION, 'The cache is expected to be filled');
-
-        // Should all be false for server = 0
-        $this->assertSame([
-            'version' => $_SESSION['relation'][$GLOBALS['server']]['version'],
-            'relwork' => false,
-            'displaywork' => false,
-            'bookmarkwork' => false,
-            'pdfwork' => false,
-            'commwork' => false,
-            'mimework' => false,
-            'historywork' => false,
-            'recentwork' => false,
-            'favoritework' => false,
-            'uiprefswork' => false,
-            'trackingwork' => false,
-            'userconfigwork' => true,
-            'menuswork' => false,
-            'navwork' => false,
-            'savedsearcheswork' => false,
-            'centralcolumnswork' => false,
-            'designersettingswork' => false,
-            'exporttemplateswork' => false,
-            'allworks' => false,
-            'user' => '',
-            'db' => 'phpmyadmin',
-            'userconfig' => 'pma__userconfig',
-        ], $_SESSION['relation'][$GLOBALS['server']]);
-
-        $this->assertSame([
-            'user' => '',
-            'pmadb' => 'phpmyadmin',
-            'bookmarktable' => '',
-            'relation' => '',
-            'table_info' => '',
-            'table_coords' => '',
-            'column_info' => '',
-            'pdf_pages' => '',
-            'history' => '',
-            'recent' => '',
-            'favorite' => '',
-            'table_uiprefs' => '',
-            'tracking' => '',
-            'userconfig' => 'pma__userconfig',
-            'users' => '',
-            'usergroups' => '',
-            'navigationhiding' => '',
-            'savedsearches' => '',
-            'central_columns' => '',
-            'designer_settings' => '',
-            'export_templates' => '',
-        ], $GLOBALS['cfg']['Server']);
-
-        $this->assertAllQueriesConsumed();
-    }
-
-    public function testInitRelationParamsCacheDefaultDbNameDbExistsFirstServerNotWorkingTable(): void
-    {
-        parent::setGlobalDbi();
-
-        $GLOBALS['db'] = '';
-        $GLOBALS['server'] = 1;
-        $GLOBALS['cfg']['Server']['user'] = '';
-        $GLOBALS['cfg']['Server']['pmadb'] = '';
-        $GLOBALS['cfg']['Server']['bookmarktable'] = '';
-        $GLOBALS['cfg']['Server']['relation'] = '';
-        $GLOBALS['cfg']['Server']['table_info'] = '';
-        $GLOBALS['cfg']['Server']['table_coords'] = '';
-        $GLOBALS['cfg']['Server']['column_info'] = '';
-        $GLOBALS['cfg']['Server']['pdf_pages'] = '';
-        $GLOBALS['cfg']['Server']['history'] = '';
-        $GLOBALS['cfg']['Server']['recent'] = '';
-        $GLOBALS['cfg']['Server']['favorite'] = '';
-        $GLOBALS['cfg']['Server']['table_uiprefs'] = '';
-        $GLOBALS['cfg']['Server']['tracking'] = '';
-        $GLOBALS['cfg']['Server']['userconfig'] = '';
-        $GLOBALS['cfg']['Server']['users'] = '';
-        $GLOBALS['cfg']['Server']['usergroups'] = '';
-        $GLOBALS['cfg']['Server']['navigationhiding'] = '';
-        $GLOBALS['cfg']['Server']['savedsearches'] = '';
-        $GLOBALS['cfg']['Server']['central_columns'] = '';
-        $GLOBALS['cfg']['Server']['designer_settings'] = '';
-        $GLOBALS['cfg']['Server']['export_templates'] = '';
-
-        $this->dummyDbi->removeDefaultResults();
-        $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `phpmyadmin`;',
-            [
-                ['pma__userconfig'],
-            ],
-            ['Tables_in_phpmyadmin']
-        );
-
-        $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `phpmyadmin`',
-            [
-                ['pma__userconfig'],
-            ],
-            ['Tables_in_phpmyadmin']
-        );
-
-        $this->dummyDbi->addResult('SELECT NULL FROM `pma__userconfig` LIMIT 0', false);
-
-        $this->dummyDbi->addSelectDb('phpmyadmin');
-        $this->dbi->initRelationParamsCache();
-        $this->assertAllSelectsConsumed();
-
-        $this->assertArrayHasKey('relation', $_SESSION, 'The cache is expected to be filled');
-
-        $this->assertSame([
-            'version' => $_SESSION['relation'][$GLOBALS['server']]['version'],
-            'relwork' => false,
-            'displaywork' => false,
-            'bookmarkwork' => false,
-            'pdfwork' => false,
-            'commwork' => false,
-            'mimework' => false,
-            'historywork' => false,
-            'recentwork' => false,
-            'favoritework' => false,
-            'uiprefswork' => false,
-            'trackingwork' => false,
-            'userconfigwork' => false,// Expected value for not working table
-            'menuswork' => false,
-            'navwork' => false,
-            'savedsearcheswork' => false,
-            'centralcolumnswork' => false,
-            'designersettingswork' => false,
-            'exporttemplateswork' => false,
-            'allworks' => false,
-            'user' => '',
-            'db' => 'phpmyadmin',
-            'userconfig' => 'pma__userconfig',
-        ], $_SESSION['relation'][$GLOBALS['server']]);
-
-        $this->assertSame([
-            'user' => '',
-            'pmadb' => 'phpmyadmin',
-            'bookmarktable' => '',
-            'relation' => '',
-            'table_info' => '',
-            'table_coords' => '',
-            'column_info' => '',
-            'pdf_pages' => '',
-            'history' => '',
-            'recent' => '',
-            'favorite' => '',
-            'table_uiprefs' => '',
-            'tracking' => '',
-            'userconfig' => 'pma__userconfig',
-            'users' => '',
-            'usergroups' => '',
-            'navigationhiding' => '',
-            'savedsearches' => '',
-            'central_columns' => '',
-            'designer_settings' => '',
-            'export_templates' => '',
-        ], $GLOBALS['cfg']['Server']);
-
-        $this->assertAllQueriesConsumed();
-    }
-
-    public function testInitRelationParamsCacheDefaultDbNameDbExistsFirstServerOverride(): void
-    {
-        parent::setGlobalDbi();
-
-        $GLOBALS['db'] = '';
-        $GLOBALS['server'] = 1;
-        $GLOBALS['cfg']['Server']['user'] = '';
-        $GLOBALS['cfg']['Server']['pmadb'] = 'PMA-storage';
-        $GLOBALS['cfg']['Server']['bookmarktable'] = '';
-        $GLOBALS['cfg']['Server']['relation'] = '';
-        $GLOBALS['cfg']['Server']['table_info'] = '';
-        $GLOBALS['cfg']['Server']['table_coords'] = '';
-        $GLOBALS['cfg']['Server']['column_info'] = '';
-        $GLOBALS['cfg']['Server']['pdf_pages'] = '';
-        $GLOBALS['cfg']['Server']['history'] = '';
-        $GLOBALS['cfg']['Server']['recent'] = '';
-        $GLOBALS['cfg']['Server']['favorite'] = '';
-        $GLOBALS['cfg']['Server']['table_uiprefs'] = '';
-        $GLOBALS['cfg']['Server']['tracking'] = '';
-        $GLOBALS['cfg']['Server']['userconfig'] = 'pma__userconfig_custom';
-        $GLOBALS['cfg']['Server']['users'] = '';
-        $GLOBALS['cfg']['Server']['usergroups'] = '';
-        $GLOBALS['cfg']['Server']['navigationhiding'] = '';
-        $GLOBALS['cfg']['Server']['savedsearches'] = '';
-        $GLOBALS['cfg']['Server']['central_columns'] = '';
-        $GLOBALS['cfg']['Server']['designer_settings'] = '';
-        $GLOBALS['cfg']['Server']['export_templates'] = '';
-
-        $this->dummyDbi->removeDefaultResults();
-        $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `PMA-storage`;',
+            'SHOW TABLE STATUS FROM `db1`;',
             [
                 [
-                    'pma__userconfig_custom',
-                    'pma__usergroups',
+                    'pma__bookmark',
+                    'InnoDB',
+                    10,
+                    'Dynamic',
+                    0,
+                    0,
+                    16384,
+                    0,
+                    0,
+                    0,
+                    1,
+                    '2021-08-27 14:11:52',
+                    null,
+                    null,
+                    'utf8_bin',
+                    null,
+                    'Bookmarks',
+                ],
+                [
+                    'pma__central_columns',
+                    'InnoDB',
+                    10,
+                    'Dynamic',
+                    0,
+                    0,
+                    16384,
+                    0,
+                    0,
+                    0,
+                    null,
+                    '2021-08-27 14:11:52',
+                    null,
+                    null,
+                    'utf8_bin',
+                    null,
+                    'Central list of columns',
                 ],
             ],
-            ['Tables_in_PMA-storage']
+            [
+                'Name',
+                'Engine',
+                'Version',
+                'Row_format',
+                'Rows',
+                'Avg_row_length',
+                'Data_length',
+                'Max_data_length',
+                'Index_length',
+                'Data_free',
+                'Auto_increment',
+                'Create_time',
+                'Update_time',
+                'Check_time',
+                'Collation',
+                'Checksum',
+                'Create_options',
+                'Comment',
+            ]
         );
 
         $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `PMA-storage`',
+            'SHOW TABLE STATUS FROM `db2`;',
             [
                 [
-                    'pma__userconfig_custom',
-                    'pma__usergroups',
+                    'pma__bookmark',
+                    'InnoDB',
+                    10,
+                    'Dynamic',
+                    0,
+                    0,
+                    16324,
+                    0,
+                    0,
+                    0,
+                    1,
+                    '2021-08-27 14:11:52',
+                    null,
+                    null,
+                    'utf8_bin',
+                    null,
+                    'Bookmarks',
                 ],
-            ],
-            ['Tables_in_PMA-storage']
-        );
-
-        $this->dummyDbi->addResult(
-            'SELECT NULL FROM `pma__userconfig_custom` LIMIT 0',
-            [
-                ['NULL'],
-            ],
-            ['NULL']
-        );
-
-        $this->dummyDbi->addSelectDb('PMA-storage');
-
-        $this->dbi->initRelationParamsCache();
-
-        $this->assertArrayHasKey(
-            'relation',
-            $_SESSION,
-            'The cache is expected to be filled because the custom override'
-            . 'was undertood (pma__userconfig vs pma__userconfig_custom)'
-        );
-
-        $this->assertAllQueriesConsumed();
-        $this->assertAllSelectsConsumed();
-
-        $this->dummyDbi->addResult(
-            'SHOW TABLES FROM `PMA-storage`',
-            [
                 [
-                    'pma__userconfig_custom',
-                    'pma__usergroups',
+                    'pma__central_columns',
+                    'InnoDB',
+                    10,
+                    'Dynamic',
+                    0,
+                    0,
+                    14384,
+                    0,
+                    0,
+                    0,
+                    null,
+                    '2021-08-27 14:11:52',
+                    null,
+                    null,
+                    'utf8_bin',
+                    null,
+                    'Central list of columns',
                 ],
             ],
-            ['Tables_in_PMA-storage']
-        );
-
-        $this->dummyDbi->addResult(
-            'SELECT NULL FROM `pma__userconfig_custom` LIMIT 0',
             [
-                ['NULL'],
-            ],
-            ['NULL']
+                'Name',
+                'Engine',
+                'Version',
+                'Row_format',
+                'Rows',
+                'Avg_row_length',
+                'Data_length',
+                'Max_data_length',
+                'Index_length',
+                'Data_free',
+                'Auto_increment',
+                'Create_time',
+                'Update_time',
+                'Check_time',
+                'Collation',
+                'Checksum',
+                'Create_options',
+                'Comment',
+            ]
+        );
+        $this->dummyDbi->addSelectDb('');
+        $this->dummyDbi->addSelectDb('');
+        $this->dummyDbi->addSelectDb('db1');
+        $this->dummyDbi->addSelectDb('db2');
+
+        $databaseList = $this->dbi->getDatabasesFull(
+            null,
+            true,
+            DatabaseInterface::CONNECT_USER,
+            'SCHEMA_DATA_LENGTH',
+            'ASC',
+            0,
+            100
         );
 
-        $this->dummyDbi->addSelectDb('PMA-storage');
-        $relationData = (new Relation($this->dbi))->checkRelationsParam();
-        $this->assertAllSelectsConsumed();
-
         $this->assertSame([
-            'version' => $relationData['version'],
-            'relwork' => false,
-            'displaywork' => false,
-            'bookmarkwork' => false,
-            'pdfwork' => false,
-            'commwork' => false,
-            'mimework' => false,
-            'historywork' => false,
-            'recentwork' => false,
-            'favoritework' => false,
-            'uiprefswork' => false,
-            'trackingwork' => false,
-            'userconfigwork' => true,
-            'menuswork' => false,
-            'navwork' => false,
-            'savedsearcheswork' => false,
-            'centralcolumnswork' => false,
-            'designersettingswork' => false,
-            'exporttemplateswork' => false,
-            'allworks' => false,
-            'user' => '',
-            'db' => 'PMA-storage',
-            'userconfig' => 'pma__userconfig_custom',
-        ], $relationData);
-
-        $this->assertSame([
-            'user' => '',
-            'pmadb' => 'PMA-storage',
-            'bookmarktable' => '',
-            'relation' => '',
-            'table_info' => '',
-            'table_coords' => '',
-            'column_info' => '',
-            'pdf_pages' => '',
-            'history' => '',
-            'recent' => '',
-            'favorite' => '',
-            'table_uiprefs' => '',
-            'tracking' => '',
-            'userconfig' => 'pma__userconfig_custom',
-            'users' => '',
-            'usergroups' => '',
-            'navigationhiding' => '',
-            'savedsearches' => '',
-            'central_columns' => '',
-            'designer_settings' => '',
-            'export_templates' => '',
-        ], $GLOBALS['cfg']['Server']);
+            [
+                'SCHEMA_NAME' => 'db2',
+                'DEFAULT_COLLATION_NAME' => 'utf8_general_ci',
+                'SCHEMA_TABLES' => 2,
+                'SCHEMA_TABLE_ROWS' => 0,
+                'SCHEMA_DATA_LENGTH' => 30708,
+                'SCHEMA_MAX_DATA_LENGTH' => 0,
+                'SCHEMA_INDEX_LENGTH' => 0,
+                'SCHEMA_LENGTH' => 30708,
+                'SCHEMA_DATA_FREE' => 0,
+            ],
+            [
+                'SCHEMA_NAME' => 'db1',
+                'DEFAULT_COLLATION_NAME' => 'utf8_general_ci',
+                'SCHEMA_TABLES' => 2,
+                'SCHEMA_TABLE_ROWS' => 0,
+                'SCHEMA_DATA_LENGTH' => 32768,
+                'SCHEMA_MAX_DATA_LENGTH' => 0,
+                'SCHEMA_INDEX_LENGTH' => 0,
+                'SCHEMA_LENGTH' => 32768,
+                'SCHEMA_DATA_FREE' => 0,
+            ],
+        ], $databaseList);
 
         $this->assertAllQueriesConsumed();
     }

@@ -12,20 +12,17 @@ use function preg_match;
 
 /**
  * @covers \PhpMyAdmin\Gis\GisMultiPoint
+ * @runTestsInSeparateProcesses
+ * @preserveGlobalState disabled
  */
 class GisMultiPointTest extends GisGeomTestCase
 {
-    /**
-     * @var    GisMultiPoint
-     * @access protected
-     */
+    /** @var    GisMultiPoint */
     protected $object;
 
     /**
      * Sets up the fixture, for example, opens a network connection.
      * This method is called before a test is executed.
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
@@ -36,8 +33,6 @@ class GisMultiPointTest extends GisGeomTestCase
     /**
      * Tears down the fixture, for example, closes a network connection.
      * This method is called after a test is executed.
-     *
-     * @access protected
      */
     protected function tearDown(): void
     {

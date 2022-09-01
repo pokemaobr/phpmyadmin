@@ -13,29 +13,25 @@ namespace PhpMyAdmin\Tests\Stubs;
 
 use PhpMyAdmin\Dbal\DatabaseName;
 use PhpMyAdmin\Dbal\DbiExtension;
+use PhpMyAdmin\Dbal\ResultInterface;
 use PhpMyAdmin\FieldMetadata;
+use PHPUnit\Framework\Assert;
 
 use function addslashes;
 use function count;
-use function debug_backtrace;
-use function fwrite;
 use function is_array;
 use function is_bool;
 use function is_int;
-use function json_encode;
 use function preg_replace;
 use function str_replace;
 use function trim;
 
-use const DEBUG_BACKTRACE_IGNORE_ARGS;
-use const JSON_PRETTY_PRINT;
-use const JSON_UNESCAPED_SLASHES;
 use const MYSQLI_TYPE_BLOB;
 use const MYSQLI_TYPE_DATETIME;
 use const MYSQLI_TYPE_DECIMAL;
 use const MYSQLI_TYPE_STRING;
-use const PHP_EOL;
-use const STDERR;
+
+// phpcs:disable Generic.Files.LineLength.TooLong
 
 /**
  * Fake database driver for testing purposes
@@ -84,7 +80,10 @@ class DbiDummy implements DbiExtension
      */
     private $dummyQueries = [];
 
-    /** @var array<int,string|false> */
+    /**
+     * @var string[]
+     * @psalm-var non-empty-string[]
+     */
     private $fifoErrorCodes = [];
 
     public const OFFSET_GLOBAL = 1000;
@@ -133,13 +132,7 @@ class DbiDummy implements DbiExtension
             return true;
         }
 
-        fwrite(STDERR, 'Non expected select of database: ' . $databaseName . PHP_EOL);
-        fwrite(STDERR, 'Trace: ' . json_encode(
-            debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5),
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-        ) . PHP_EOL);
-
-        return false;
+        Assert::markTestIncomplete('Non expected select of database: ' . $databaseName);
     }
 
     public function hasUnUsedErrors(): bool
@@ -206,14 +199,18 @@ class DbiDummy implements DbiExtension
      * @param object $link    mysql link resource
      * @param int    $options query options
      *
-     * @return mixed
+     * @return DummyResult|false
      */
-    public function realQuery($query, $link = null, $options = 0)
+    public function realQuery(string $query, $link, int $options)
     {
         $query = trim((string) preg_replace('/  */', ' ', str_replace("\n", ' ', $query)));
         $filoQuery = $this->findFiloQuery($query);
+        if ($filoQuery === false) {
+            return false;
+        }
+
         if ($filoQuery !== null) {// Found a matching query
-            return $filoQuery;
+            return new DummyResult($this, $filoQuery);
         }
 
         for ($i = 0, $nb = count($this->dummyQueries); $i < $nb; $i++) {
@@ -226,12 +223,10 @@ class DbiDummy implements DbiExtension
                 return false;
             }
 
-            return $i + self::OFFSET_GLOBAL;
+            return new DummyResult($this, $i + self::OFFSET_GLOBAL);
         }
 
-        echo 'Not supported query: ' . $query . "\n";
-
-        return false;
+        Assert::markTestIncomplete('Not supported query: ' . $query);
     }
 
     /**
@@ -240,7 +235,7 @@ class DbiDummy implements DbiExtension
      * @param object $link  connection object
      * @param string $query multi query statement to execute
      *
-     * @return array|bool
+     * @return bool
      */
     public function realMultiQuery($link, $query)
     {
@@ -250,7 +245,7 @@ class DbiDummy implements DbiExtension
     /**
      * returns result data from $result
      *
-     * @param object $result MySQL result
+     * @param int $result MySQL result
      */
     public function fetchAny($result): ?array
     {
@@ -266,34 +261,14 @@ class DbiDummy implements DbiExtension
     }
 
     /**
-     * returns array of rows with associative and numeric keys from $result
-     *
-     * @param object $result result  MySQL result
-     */
-    public function fetchArray($result): ?array
-    {
-        $query_data = &$this->getQueryData($result);
-        $data = $this->fetchAny($result);
-        if (! is_array($data) || ! isset($query_data['columns'])) {
-            return $data;
-        }
-
-        foreach ($data as $key => $val) {
-            $data[$query_data['columns'][$key]] = $val;
-        }
-
-        return $data;
-    }
-
-    /**
      * returns array of rows with associative keys from $result
      *
-     * @param object $result MySQL result
+     * @param int $result MySQL result
      */
     public function fetchAssoc($result): ?array
     {
         $data = $this->fetchAny($result);
-        $query_data = &$this->getQueryData($result);
+        $query_data = $this->getQueryData($result);
         if (! is_array($data) || ! isset($query_data['columns'])) {
             return $data;
         }
@@ -309,7 +284,7 @@ class DbiDummy implements DbiExtension
     /**
      * returns array of rows with numeric keys from $result
      *
-     * @param object $result MySQL result
+     * @param int $result MySQL result
      */
     public function fetchRow($result): ?array
     {
@@ -319,8 +294,8 @@ class DbiDummy implements DbiExtension
     /**
      * Adjusts the result pointer to an arbitrary row in the result
      *
-     * @param object $result database result
-     * @param int    $offset offset to seek
+     * @param int $result database result
+     * @param int $offset offset to seek
      */
     public function dataSeek($result, $offset): bool
     {
@@ -332,15 +307,6 @@ class DbiDummy implements DbiExtension
         $query_data['pos'] = $offset;
 
         return true;
-    }
-
-    /**
-     * Frees memory associated with the result
-     *
-     * @param object $result database result
-     */
-    public function freeResult($result): void
-    {
     }
 
     /**
@@ -368,7 +334,7 @@ class DbiDummy implements DbiExtension
      *
      * @param object $link the connection object
      *
-     * @return mixed false when empty results / result set when not empty
+     * @return ResultInterface|false false when empty results / result set when not empty
      */
     public function storeResult($link)
     {
@@ -402,23 +368,19 @@ class DbiDummy implements DbiExtension
     /**
      * returns a string that represents the client library version
      *
-     * @param object $link connection link
-     *
      * @return string MySQL client library version
      */
-    public function getClientInfo($link)
+    public function getClientInfo()
     {
         return 'libmysql - mysqlnd x.x.x-dev (phpMyAdmin tests)';
     }
 
     /**
-     * returns last error message or false if no errors occurred
+     * Returns last error message or an empty string if no errors occurred.
      *
      * @param object $link connection link
-     *
-     * @return string|bool error or false
      */
-    public function getError($link)
+    public function getError($link): string
     {
         foreach ($this->fifoErrorCodes as $i => $code) {
             unset($this->fifoErrorCodes[$i]);
@@ -426,13 +388,13 @@ class DbiDummy implements DbiExtension
             return $code;
         }
 
-        return false;
+        return '';
     }
 
     /**
      * returns the number of rows returned by last query
      *
-     * @param object|bool $result MySQL result
+     * @param int|bool $result MySQL result
      *
      * @return string|int
      * @psalm-return int|numeric-string
@@ -443,7 +405,7 @@ class DbiDummy implements DbiExtension
             return 0;
         }
 
-        $query_data = &$this->getQueryData($result);
+        $query_data = $this->getQueryData($result);
 
         return count($query_data['result']);
     }
@@ -459,74 +421,49 @@ class DbiDummy implements DbiExtension
      */
     public function affectedRows($link = null, $get_from_cache = true)
     {
-        global $cached_affected_rows;
-
-        return $cached_affected_rows ?? 0;
+        return $GLOBALS['cached_affected_rows'] ?? 0;
     }
 
     /**
      * returns metainfo for fields in $result
      *
-     * @param object $result result set identifier
+     * @param int $result result set identifier
      *
-     * @return FieldMetadata[]|null meta info for fields in $result
+     * @return FieldMetadata[] meta info for fields in $result
      */
-    public function getFieldsMeta($result): ?array
+    public function getFieldsMeta($result): array
     {
-        $query_data = &$this->getQueryData($result);
-        if (! isset($query_data['metadata'])) {
-            return [];
+        $query_data = $this->getQueryData($result);
+        /** @var FieldMetadata[] $metadata */
+        $metadata = $query_data['metadata'] ?? [];
+
+        if (isset($query_data['columns'])) {
+            /** @var string[] $columns */
+            $columns = $query_data['columns'];
+            foreach ($columns as $i => $column) {
+                if (isset($metadata[$i])) {
+                    $metadata[$i]->name = $column;
+                } else {
+                    $metadata[$i] = new FieldMetadata(MYSQLI_TYPE_STRING, 0, (object) ['name' => $column]);
+                }
+            }
         }
 
-        return $query_data['metadata'];
+        return $metadata;
     }
 
     /**
      * return number of fields in given $result
      *
-     * @param object $result MySQL result
+     * @param int $result MySQL result
      *
      * @return int  field count
      */
     public function numFields($result)
     {
-        $query_data = &$this->getQueryData($result);
-        if (! isset($query_data['columns'])) {
-            return 0;
-        }
+        $query_data = $this->getQueryData($result);
 
-        return count($query_data['columns']);
-    }
-
-    /**
-     * returns the length of the given field $i in $result
-     *
-     * @param object $result result set identifier
-     * @param int    $i      field
-     *
-     * @return int length of field
-     */
-    public function fieldLen($result, $i)
-    {
-        return -1;
-    }
-
-    /**
-     * returns name of $i. field in $result
-     *
-     * @param object $result result set identifier
-     * @param int    $i      field
-     *
-     * @return string name of $i. field in $result
-     */
-    public function fieldName($result, $i)
-    {
-        $query_data = &$this->getQueryData($result);
-        if (! isset($query_data['columns'])) {
-            return '';
-        }
-
-        return $query_data['columns'][$i];
+        return count($query_data['columns'] ?? []);
     }
 
     /**
@@ -554,7 +491,7 @@ class DbiDummy implements DbiExtension
      * @param array|bool $result   Expected result
      * @param string[]   $columns  The result columns
      * @param object[]   $metadata The result metadata
-     * @phpstan-param (int[]|string[]|array{string: string}|null[])[]|bool|bool[] $result
+     * @phpstan-param array<int, array<int, array{string: string}|bool|int|string|null>|bool>|bool $result
      */
     public function addResult(string $query, $result, array $columns = [], array $metadata = []): void
     {
@@ -567,11 +504,11 @@ class DbiDummy implements DbiExtension
     }
 
     /**
-     * Adds an error or false as no error to the stack
+     * Adds an error or null as no error to the stack
      *
-     * @param string|false $code
+     * @psalm-param non-empty-string $code
      */
-    public function addErrorCode($code): void
+    public function addErrorCode(string $code): void
     {
         $this->fifoErrorCodes[] = $code;
     }
@@ -611,6 +548,11 @@ class DbiDummy implements DbiExtension
         }
 
         return $this->filoQueries[$result];
+    }
+
+    public function assertAllSelectsConsumed(): void
+    {
+        Assert::assertSame([], $this->getUnUsedDatabaseSelects(), 'Some database selects where not used!');
     }
 
     private function init(): void
@@ -1113,6 +1055,43 @@ class DbiDummy implements DbiExtension
                 ],
             ],
             [
+                'query' => 'SELECT CONCAT(`db_name`, \'.\', `table_name`, \'.\', `column_name`) AS column_name, `mimetype`, `transformation`,'
+                    . ' `transformation_options`, `input_transformation`,'
+                    . ' `input_transformation_options`'
+                    . ' FROM `information_schema`.`column_info`'
+                    . ' WHERE `db_name` = \'my_db\' AND `table_name` = \'\''
+                    . ' AND ( `mimetype` != \'\' OR `transformation` != \'\''
+                    . ' OR `transformation_options` != \'\''
+                    . ' OR `input_transformation` != \'\''
+                    . ' OR `input_transformation_options` != \'\')',
+                'columns' => [
+                    'column_name',
+                    'mimetype',
+                    'transformation',
+                    'transformation_options',
+                    'input_transformation',
+                    'input_transformation_options',
+                ],
+                'result' => [
+                    [
+                        'vc',
+                        '',
+                        'output/text_plain_json.php',
+                        '',
+                        'Input/Text_Plain_JsonEditor.php',
+                        '',
+                    ],
+                    [
+                        'vc',
+                        '',
+                        'output/text_plain_formatted.php',
+                        '',
+                        'Text_Plain_Substring.php',
+                        '1',
+                    ],
+                ],
+            ],
+            [
                 'query' => 'SELECT TABLE_NAME FROM information_schema.VIEWS'
                     . ' WHERE TABLE_SCHEMA = \'pma_test\' AND TABLE_NAME = \'table1\'',
                 'result' => [],
@@ -1125,6 +1104,11 @@ class DbiDummy implements DbiExtension
             [
                 'query' => 'SELECT TABLE_NAME FROM information_schema.VIEWS'
                     . ' WHERE TABLE_SCHEMA = \'ODS_DB\' AND TABLE_NAME = \'pma_bookmark\'',
+                'result' => [],
+            ],
+            [
+                'query'  => 'SELECT TABLE_NAME FROM information_schema.VIEWS'
+                . ' WHERE TABLE_SCHEMA = \'ODS_DB\' AND TABLE_NAME = \'Feuille 1\'',
                 'result' => [],
             ],
             [
@@ -1578,7 +1562,7 @@ class DbiDummy implements DbiExtension
                 'query' => 'SHOW MASTER STATUS',
                 'result' => [
                     [
-                        'File' => 'master-bin.000030',
+                        'File' => 'primary-bin.000030',
                         'Position' => '107',
                         'Binlog_Do_DB' => 'Binlog_Do_DB',
                         'Binlog_Ignore_DB' => 'Binlog_Ignore_DB',
@@ -1787,7 +1771,7 @@ class DbiDummy implements DbiExtension
                 'result' => [],
             ],
             [
-                'query' => "SHOW TABLE STATUS FROM `my_dataset` WHERE `Name` LIKE 'company\_users%'",
+                'query' => "SHOW TABLE STATUS FROM `my_dataset` WHERE `Name` LIKE 'company\\\\_users%'",
                 'result' => [],
             ],
             [
@@ -2408,7 +2392,7 @@ class DbiDummy implements DbiExtension
                 'result' => [['1']],
             ],
             [
-                'query' => 'SHOW TABLE STATUS FROM `PMA_db` WHERE `Name` LIKE \'PMA\_table%\'',
+                'query' => 'SHOW TABLE STATUS FROM `PMA_db` WHERE `Name` LIKE \'PMA\\\\_table%\'',
                 'columns' => ['Name', 'Engine'],
                 'result' => [['PMA_table', 'InnoDB']],
             ],
@@ -2462,7 +2446,7 @@ class DbiDummy implements DbiExtension
                 ],
             ],
             [
-                'query' => 'SHOW FULL COLUMNS FROM `testdb`.`mytable` LIKE \'\_id\'',
+                'query' => 'SHOW FULL COLUMNS FROM `testdb`.`mytable` LIKE \'\\\\_id\'',
                 'columns' => ['Field', 'Type', 'Collation', 'Null', 'Key', 'Default', 'Extra', 'Privileges', 'Comment'],
                 'result' => [
                     [
@@ -2537,7 +2521,7 @@ class DbiDummy implements DbiExtension
             [
                 'query' => 'SHOW CREATE TABLE `test_db`.`test_table`',
                 'columns' => ['Table', 'Create Table'],
-                'result' => [['test_table', 'CREATE TABLE `test_table`']],
+                'result' => [['test_table', 'CREATE TABLE `test_table` (' . "\n" . '  `id` int(11) NOT NULL AUTO_INCREMENT,' . "\n" . '  `name` varchar(20) NOT NULL,' . "\n" . '  `datetimefield` datetime NOT NULL,' . "\n" . '  PRIMARY KEY (`id`)' . "\n" . ') ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4']],
             ],
             [
                 'query' => 'SHOW COLUMNS FROM `test_db`.`test_table`',
@@ -2567,7 +2551,7 @@ class DbiDummy implements DbiExtension
                 ],
             ],
             [
-                'query' => 'SHOW TABLE STATUS FROM `test_db` WHERE `Name` LIKE \'test\_table%\'',
+                'query' => 'SHOW TABLE STATUS FROM `test_db` WHERE `Name` LIKE \'test\\\\_table%\'',
                 'columns' => ['Name', 'Engine', 'Rows'],
                 'result' => [['test_table', 'InnoDB', '3']],
             ],
@@ -2709,12 +2693,12 @@ class DbiDummy implements DbiExtension
                     [
                         'sss s s  ',
                         '…z',
-                        1,
+                        '1',
                     ],
                     [
                         'zzff s sf',
                         '…zff',
-                        2,
+                        '2',
                     ],
                 ],
             ],
@@ -2732,7 +2716,7 @@ class DbiDummy implements DbiExtension
                 'result' => [],
             ],
             [
-                'query' => 'SHOW TABLE STATUS FROM `my_db` WHERE `Name` LIKE \'test\_tbl%\'',
+                'query' => 'SHOW TABLE STATUS FROM `my_db` WHERE `Name` LIKE \'test\\\\_tbl%\'',
                 'result' => [],
             ],
             [

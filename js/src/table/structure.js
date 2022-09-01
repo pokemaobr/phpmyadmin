@@ -49,9 +49,8 @@ AJAX.registerTeardown('table/structure.js', function () {
     $(document).off('click', 'a.drop_column_anchor.ajax');
     $(document).off('click', 'a.add_key.ajax');
     $(document).off('click', '#move_columns_anchor');
-    $(document).off('click', '#printView');
     $(document).off('submit', '.append_fields_form.ajax');
-    $('body').off('click', '#fieldsForm.ajax button');
+    $('body').off('click', '#fieldsForm button.mult_submit');
     $(document).off('click', 'a[id^=partition_action].ajax');
     $(document).off('click', '#remove_partitioning.ajax');
 });
@@ -194,7 +193,7 @@ AJAX.registerOnload('table/structure.js', function () {
         /**
          * @var question String containing the question to be asked for confirmation
          */
-        var question = Functions.sprintf(Messages.strDoYouReally, 'ALTER TABLE `' + Functions.escapeHtml(currTableName) + '` DROP `' + Functions.escapeHtml(currColumnName) + '`;');
+        var question = Functions.sprintf(Messages.strDoYouReally, 'ALTER TABLE `' + currTableName + '` DROP `' + currColumnName + '`;');
         var $thisAnchor = $(this);
         $thisAnchor.confirm(question, $thisAnchor.attr('href'), function (url) {
             var $msg = Functions.ajaxShowMessage(Messages.strDroppingColumn, false);
@@ -242,16 +241,6 @@ AJAX.registerOnload('table/structure.js', function () {
             }); // end $.post()
         });
     }); // end of Drop Column Anchor action
-
-    /**
-     * Attach Event Handler for 'Print' link
-     */
-    $(document).on('click', '#printView', function (event) {
-        event.preventDefault();
-
-        // Take to preview mode
-        Functions.printPreview();
-    }); // end of Print View action
 
     /**
      * Ajax Event handler for adding keys
@@ -403,7 +392,7 @@ AJAX.registerOnload('table/structure.js', function () {
     /**
      * Handles multi submits in table structure page such as change, browse, drop, primary etc.
      */
-    $('body').on('click', '#fieldsForm.ajax button', function (e) {
+    $('body').on('click', '#fieldsForm button.mult_submit', function (e) {
         e.preventDefault();
         var $form = $(this).parents('form');
         var argsep = CommonParams.get('arg_separator');
@@ -462,39 +451,5 @@ AJAX.registerOnload('table/structure.js', function () {
 
     $(document).on('change', 'select[name=after_field]', function () {
         checkFirst();
-    });
-});
-
-/** Handler for "More" dropdown in structure table rows */
-AJAX.registerOnload('table/structure.js', function () {
-    var windowwidth = $(window).width();
-    if (windowwidth > 768) {
-        if (! $('#fieldsForm').hasClass('HideStructureActions')) {
-            $('.table-structure-actions').width(function () {
-                var width = 5;
-                $(this).find('li').each(function () {
-                    width += $(this).outerWidth(true);
-                });
-                return width;
-            });
-        }
-    }
-
-    $('.jsresponsive').css('max-width', (windowwidth - 35) + 'px');
-    var tableRows = $('.central_columns');
-    $.each(tableRows, function (index, item) {
-        if ($(item).hasClass('add_button')) {
-            $(item).on('click', function () {
-                $('input:checkbox').prop('checked', false);
-                $('#checkbox_row_' + (index + 1)).prop('checked', true);
-                $('button[value=add_to_central_columns]').trigger('click');
-            });
-        } else {
-            $(item).on('click', function () {
-                $('input:checkbox').prop('checked', false);
-                $('#checkbox_row_' + (index + 1)).prop('checked', true);
-                $('button[value=remove_from_central_columns]').trigger('click');
-            });
-        }
     });
 });

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Database;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Database\Designer\DesignerTable;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Message;
 use PhpMyAdmin\Plugins;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Util;
 use stdClass;
@@ -57,12 +57,12 @@ class Designer
      */
     public function getHtmlForEditOrDeletePages($db, $operation)
     {
-        $cfgRelation = $this->relation->getRelationsParam();
+        $relationParameters = $this->relation->getRelationParameters();
 
         return $this->template->render('database/designer/edit_delete_pages', [
             'db' => $db,
             'operation' => $operation,
-            'pdfwork' => $cfgRelation['pdfwork'],
+            'pdfwork' => $relationParameters->pdfFeature !== null,
             'pages' => $this->getPageIdsAndNames($db),
         ]);
     }
@@ -76,11 +76,11 @@ class Designer
      */
     public function getHtmlForPageSaveAs($db)
     {
-        $cfgRelation = $this->relation->getRelationsParam();
+        $relationParameters = $this->relation->getRelationParameters();
 
         return $this->template->render('database/designer/page_save_as', [
             'db' => $db,
-            'pdfwork' => $cfgRelation['pdfwork'],
+            'pdfwork' => $relationParameters->pdfFeature !== null,
             'pages' => $this->getPageIdsAndNames($db),
         ]);
     }
@@ -94,20 +94,24 @@ class Designer
      */
     private function getPageIdsAndNames($db)
     {
-        $result = [];
-        $cfgRelation = $this->relation->getRelationsParam();
-        if (! $cfgRelation['pdfwork']) {
-            return $result;
+        $pdfFeature = $this->relation->getRelationParameters()->pdfFeature;
+        if ($pdfFeature === null) {
+            return [];
         }
 
         $page_query = 'SELECT `page_nr`, `page_descr` FROM '
-            . Util::backquote($cfgRelation['db']) . '.'
-            . Util::backquote($cfgRelation['pdf_pages'])
+            . Util::backquote($pdfFeature->database) . '.'
+            . Util::backquote($pdfFeature->pdfPages)
             . " WHERE db_name = '" . $this->dbi->escapeString($db) . "'"
             . ' ORDER BY `page_descr`';
-        $page_rs = $this->relation->queryAsControlUser($page_query, false, DatabaseInterface::QUERY_STORE);
+        $page_rs = $this->dbi->tryQueryAsControlUser($page_query);
 
-        while ($curr_page = $this->dbi->fetchAssoc($page_rs)) {
+        if (! $page_rs) {
+            return [];
+        }
+
+        $result = [];
+        while ($curr_page = $page_rs->fetchAssoc()) {
             $result[intval($curr_page['page_nr'])] = $curr_page['page_descr'];
         }
 
@@ -154,18 +158,15 @@ class Designer
      */
     private function getSideMenuParamsArray()
     {
-        global $dbi;
-
         $params = [];
 
-        $cfgRelation = $this->relation->getRelationsParam();
-
-        if ($cfgRelation['designersettingswork']) {
+        $databaseDesignerSettingsFeature = $this->relation->getRelationParameters()->databaseDesignerSettingsFeature;
+        if ($databaseDesignerSettingsFeature !== null) {
             $query = 'SELECT `settings_data` FROM '
-                . Util::backquote($cfgRelation['db']) . '.'
-                . Util::backquote($cfgRelation['designer_settings'])
+                . Util::backquote($databaseDesignerSettingsFeature->database) . '.'
+                . Util::backquote($databaseDesignerSettingsFeature->designerSettings)
                 . ' WHERE ' . Util::backquote('username') . ' = "'
-                . $dbi->escapeString($GLOBALS['cfg']['Server']['user'])
+                . $GLOBALS['dbi']->escapeString($GLOBALS['cfg']['Server']['user'])
                 . '";';
 
             $result = $this->dbi->fetchSingleRow($query);
@@ -248,7 +249,7 @@ class Designer
         array $tables_all_keys,
         array $tables_pk_or_unique_keys
     ) {
-        global $text_dir;
+        $GLOBALS['text_dir'] = $GLOBALS['text_dir'] ?? null;
 
         $columns_type = [];
         foreach ($designerTables as $designerTable) {
@@ -285,7 +286,7 @@ class Designer
 
         return $this->template->render('database/designer/database_tables', [
             'db' => $GLOBALS['db'],
-            'text_dir' => $text_dir,
+            'text_dir' => $GLOBALS['text_dir'],
             'get_db' => $db,
             'has_query' => isset($_REQUEST['query']),
             'tab_pos' => $tab_pos,
@@ -334,9 +335,9 @@ class Designer
         array $tablesAllKeys,
         array $tablesPkOrUniqueKeys
     ): string {
-        global $text_dir;
+        $GLOBALS['text_dir'] = $GLOBALS['text_dir'] ?? null;
 
-        $cfgRelation = $this->relation->getRelationsParam();
+        $relationParameters = $this->relation->getRelationParameters();
         $columnsType = [];
         foreach ($designerTables as $designerTable) {
             $tableName = $designerTable->getDbTableString();
@@ -386,11 +387,11 @@ class Designer
         $designerConfig->server = $GLOBALS['server'];
         $designerConfig->scriptDisplayField = $displayedFields;
         $designerConfig->displayPage = (int) $displayPage;
-        $designerConfig->tablesEnabled = $cfgRelation['pdfwork'];
+        $designerConfig->tablesEnabled = $relationParameters->pdfFeature !== null;
 
         return $this->template->render('database/designer/main', [
             'db' => $db,
-            'text_dir' => $text_dir,
+            'text_dir' => $GLOBALS['text_dir'],
             'get_db' => $getDb,
             'designer_config' => json_encode($designerConfig),
             'display_page' => (int) $displayPage,

@@ -8,7 +8,7 @@ use PhpMyAdmin\Cache;
 use PhpMyAdmin\Config;
 use PhpMyAdmin\Core;
 use PhpMyAdmin\DatabaseInterface;
-use PhpMyAdmin\Language;
+use PhpMyAdmin\Dbal\DbiExtension;
 use PhpMyAdmin\LanguageManager;
 use PhpMyAdmin\SqlParser\Translator;
 use PhpMyAdmin\Tests\Stubs\DbiDummy;
@@ -19,6 +19,7 @@ use PhpMyAdmin\Utils\HttpRequest;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
+use function array_keys;
 use function in_array;
 
 use const DIRECTORY_SEPARATOR;
@@ -63,7 +64,7 @@ abstract class AbstractTestCase extends TestCase
      */
     protected function setUp(): void
     {
-        foreach ($GLOBALS as $key => $val) {
+        foreach (array_keys($GLOBALS) as $key) {
             if (in_array($key, $this->globalsAllowList)) {
                 continue;
             }
@@ -85,10 +86,20 @@ abstract class AbstractTestCase extends TestCase
         $_COOKIE = [];
         $_FILES = [];
         $_REQUEST = [];
+
+        $GLOBALS['server'] = 1;
+        $GLOBALS['db'] = '';
+        $GLOBALS['table'] = '';
+        $GLOBALS['sql_query'] = '';
+        $GLOBALS['text_dir'] = 'ltr';
+        $GLOBALS['PMA_PHP_SELF'] = 'index.php';
+
         // Config before DBI
         $this->setGlobalConfig();
-        $GLOBALS['containerBuilder'] = Core::getContainerBuilder();
+        $this->loadContainerBuilder();
         $this->setGlobalDbi();
+        $this->loadDbiIntoContainerBuilder();
+        $this->setTheme();
         Cache::purge();
     }
 
@@ -121,97 +132,90 @@ abstract class AbstractTestCase extends TestCase
 
     protected function loadContainerBuilder(): void
     {
-        global $containerBuilder;
-
-        $containerBuilder = Core::getContainerBuilder();
+        $GLOBALS['containerBuilder'] = Core::getContainerBuilder();
     }
 
     protected function loadDbiIntoContainerBuilder(): void
     {
-        global $containerBuilder, $dbi;
-
-        $containerBuilder->set(DatabaseInterface::class, $dbi);
-        $containerBuilder->setAlias('dbi', DatabaseInterface::class);
+        $GLOBALS['containerBuilder']->set(DatabaseInterface::class, $GLOBALS['dbi']);
+        $GLOBALS['containerBuilder']->setAlias('dbi', DatabaseInterface::class);
     }
 
     protected function loadResponseIntoContainerBuilder(): void
     {
-        global $containerBuilder;
-
         $response = new ResponseRenderer();
-        $containerBuilder->set(ResponseRenderer::class, $response);
-        $containerBuilder->setAlias('response', ResponseRenderer::class);
+        $GLOBALS['containerBuilder']->set(ResponseRenderer::class, $response);
+        $GLOBALS['containerBuilder']->setAlias('response', ResponseRenderer::class);
     }
 
     protected function setResponseIsAjax(): void
     {
-        global $containerBuilder;
-
         /** @var ResponseRenderer $response */
-        $response = $containerBuilder->get(ResponseRenderer::class);
+        $response = $GLOBALS['containerBuilder']->get(ResponseRenderer::class);
 
         $response->setAjax(true);
     }
 
     protected function getResponseHtmlResult(): string
     {
-        global $containerBuilder;
-
         /** @var ResponseRenderer $response */
-        $response = $containerBuilder->get(ResponseRenderer::class);
+        $response = $GLOBALS['containerBuilder']->get(ResponseRenderer::class);
 
         return $response->getHTMLResult();
     }
 
     protected function getResponseJsonResult(): array
     {
-        global $containerBuilder;
-
         /** @var ResponseRenderer $response */
-        $response = $containerBuilder->get(ResponseRenderer::class);
+        $response = $GLOBALS['containerBuilder']->get(ResponseRenderer::class);
 
         return $response->getJSONResult();
     }
 
     protected function assertResponseWasNotSuccessfull(): void
     {
-        global $containerBuilder;
         /** @var ResponseRenderer $response */
-        $response = $containerBuilder->get(ResponseRenderer::class);
+        $response = $GLOBALS['containerBuilder']->get(ResponseRenderer::class);
 
         $this->assertFalse($response->hasSuccessState(), 'expected the request to fail');
     }
 
     protected function assertResponseWasSuccessfull(): void
     {
-        global $containerBuilder;
         /** @var ResponseRenderer $response */
-        $response = $containerBuilder->get(ResponseRenderer::class);
+        $response = $GLOBALS['containerBuilder']->get(ResponseRenderer::class);
 
         $this->assertTrue($response->hasSuccessState(), 'expected the request not to fail');
     }
 
     protected function setGlobalDbi(): void
     {
-        global $dbi;
-        $this->dummyDbi = new DbiDummy();
-        $this->dbi = DatabaseInterface::load($this->dummyDbi);
-        $dbi = $this->dbi;
+        $this->dummyDbi = $this->createDbiDummy();
+        $this->dbi = $this->createDatabaseInterface($this->dummyDbi);
+        $GLOBALS['dbi'] = $this->dbi;
+    }
+
+    protected function createDatabaseInterface(?DbiExtension $extension = null): DatabaseInterface
+    {
+        return new DatabaseInterface($extension ?? $this->createDbiDummy());
+    }
+
+    protected function createDbiDummy(): DbiDummy
+    {
+        return new DbiDummy();
     }
 
     protected function setGlobalConfig(): void
     {
-        global $config, $cfg;
-        $config = new Config();
-        $config->checkServers();
-        $config->set('environment', 'development');
-        $cfg = $config->settings;
+        $GLOBALS['config'] = new Config();
+        $GLOBALS['config']->checkServers();
+        $GLOBALS['config']->set('environment', 'development');
+        $GLOBALS['cfg'] = $GLOBALS['config']->settings;
     }
 
     protected function setTheme(): void
     {
-        global $theme;
-        $theme = Theme::load(
+        $GLOBALS['theme'] = Theme::load(
             ThemeManager::getThemesDir() . 'pmahomme',
             ThemeManager::getThemesFsDir() . 'pmahomme' . DIRECTORY_SEPARATOR,
             'pmahomme'
@@ -220,12 +224,13 @@ abstract class AbstractTestCase extends TestCase
 
     protected function setLanguage(string $code = 'en'): void
     {
-        global $lang;
-
-        $lang = $code;
+        $GLOBALS['lang'] = $code;
         /* Ensure default language is active */
-        /** @var Language $languageEn */
         $languageEn = LanguageManager::getInstance()->getLanguage($code);
+        if ($languageEn === false) {
+            return;
+        }
+
         $languageEn->activate();
         Translator::load();
     }
@@ -236,12 +241,12 @@ abstract class AbstractTestCase extends TestCase
     }
 
     /**
-     * Desctroys the environment built for the test.
+     * Destroys the environment built for the test.
      * Clean all variables
      */
     protected function tearDown(): void
     {
-        foreach ($GLOBALS as $key => $val) {
+        foreach (array_keys($GLOBALS) as $key) {
             if (in_array($key, $this->globalsAllowList)) {
                 continue;
             }

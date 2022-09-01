@@ -21,7 +21,6 @@ use function __;
 use function htmlspecialchars;
 use function in_array;
 use function str_replace;
-use function stripslashes;
 
 /**
  * Handles the export for the HTML-Word format
@@ -99,7 +98,7 @@ class ExportHtmlword extends ExportPlugin
      */
     public function exportHeader(): bool
     {
-        global $charset;
+        $GLOBALS['charset'] = $GLOBALS['charset'] ?? null;
 
         return $this->export->outputHandler(
             '<html xmlns:o="urn:schemas-microsoft-com:office:office"
@@ -111,7 +110,7 @@ class ExportHtmlword extends ExportPlugin
             <html>
             <head>
                 <meta http-equiv="Content-type" content="text/html;charset='
-            . ($charset ?? 'utf-8') . '" />
+            . ($GLOBALS['charset'] ?? 'utf-8') . '" />
             </head>
             <body>'
         );
@@ -182,7 +181,7 @@ class ExportHtmlword extends ExportPlugin
         $sqlQuery,
         array $aliases = []
     ): bool {
-        global $what, $dbi;
+        $GLOBALS['what'] = $GLOBALS['what'] ?? null;
 
         $db_alias = $db;
         $table_alias = $table;
@@ -203,19 +202,21 @@ class ExportHtmlword extends ExportPlugin
         }
 
         // Gets the data from the database
-        $result = $dbi->query($sqlQuery, DatabaseInterface::CONNECT_USER, DatabaseInterface::QUERY_UNBUFFERED);
-        $fields_cnt = $dbi->numFields($result);
+        $result = $GLOBALS['dbi']->query(
+            $sqlQuery,
+            DatabaseInterface::CONNECT_USER,
+            DatabaseInterface::QUERY_UNBUFFERED
+        );
+        $fields_cnt = $result->numFields();
 
         // If required, get fields name at the first line
         if (isset($GLOBALS['htmlword_columns'])) {
             $schema_insert = '<tr class="print-category">';
-            for ($i = 0; $i < $fields_cnt; $i++) {
-                $col_as = $dbi->fieldName($result, $i);
+            foreach ($result->getFieldNames() as $col_as) {
                 if (! empty($aliases[$db]['tables'][$table]['columns'][$col_as])) {
                     $col_as = $aliases[$db]['tables'][$table]['columns'][$col_as];
                 }
 
-                $col_as = stripslashes($col_as);
                 $schema_insert .= '<td class="print"><strong>'
                     . htmlspecialchars($col_as)
                     . '</strong></td>';
@@ -228,11 +229,11 @@ class ExportHtmlword extends ExportPlugin
         }
 
         // Format the data
-        while ($row = $dbi->fetchRow($result)) {
+        while ($row = $result->fetchRow()) {
             $schema_insert = '<tr class="print-category">';
             for ($j = 0; $j < $fields_cnt; $j++) {
                 if (! isset($row[$j])) {
-                    $value = $GLOBALS[$what . '_null'];
+                    $value = $GLOBALS[$GLOBALS['what'] . '_null'];
                 } elseif ($row[$j] == '0' || $row[$j] != '') {
                     $value = $row[$j];
                 } else {
@@ -250,8 +251,6 @@ class ExportHtmlword extends ExportPlugin
             }
         }
 
-        $dbi->freeResult($result);
-
         return $this->export->outputHandler('</table>');
     }
 
@@ -267,8 +266,6 @@ class ExportHtmlword extends ExportPlugin
      */
     public function getTableDefStandIn($db, $view, $crlf, $aliases = [])
     {
-        global $dbi;
-
         $schema_insert = '<table width="100%" cellspacing="1">'
             . '<tr class="print-category">'
             . '<th class="print">'
@@ -289,7 +286,7 @@ class ExportHtmlword extends ExportPlugin
          * Get the unique keys in the view
          */
         $unique_keys = [];
-        $keys = $dbi->getTableIndexes($db, $view);
+        $keys = $GLOBALS['dbi']->getTableIndexes($db, $view);
         foreach ($keys as $key) {
             if ($key['Non_unique'] != 0) {
                 continue;
@@ -298,7 +295,7 @@ class ExportHtmlword extends ExportPlugin
             $unique_keys[] = $key['Column_name'];
         }
 
-        $columns = $dbi->getColumns($db, $view);
+        $columns = $GLOBALS['dbi']->getColumns($db, $view);
         foreach ($columns as $column) {
             $col_as = $column['Field'];
             if (! empty($aliases[$db]['tables'][$view]['columns'][$col_as])) {
@@ -342,22 +339,18 @@ class ExportHtmlword extends ExportPlugin
         $view = false,
         array $aliases = []
     ) {
-        global $dbi;
-
-        // set $cfgRelation here, because there is a chance that it's modified
-        // since the class initialization
-        global $cfgRelation;
+        $relationParameters = $this->relation->getRelationParameters();
 
         $schema_insert = '';
 
         /**
          * Gets fields properties
          */
-        $dbi->selectDb($db);
+        $GLOBALS['dbi']->selectDb($db);
 
         // Check if we can use Relations
         [$res_rel, $have_rel] = $this->relation->getRelationsAndStatus(
-            $do_relation && ! empty($cfgRelation['relation']),
+            $do_relation && $relationParameters->relationFeature !== null,
             $db,
             $table
         );
@@ -393,7 +386,7 @@ class ExportHtmlword extends ExportPlugin
             $comments = $this->relation->getComments($db, $table);
         }
 
-        if ($do_mime && $cfgRelation['mimework']) {
+        if ($do_mime && $relationParameters->browserTransformationFeature !== null) {
             $schema_insert .= '<td class="print"><strong>'
                 . __('Media type')
                 . '</strong></td>';
@@ -402,12 +395,12 @@ class ExportHtmlword extends ExportPlugin
 
         $schema_insert .= '</tr>';
 
-        $columns = $dbi->getColumns($db, $table);
+        $columns = $GLOBALS['dbi']->getColumns($db, $table);
         /**
          * Get the unique keys in the table
          */
         $unique_keys = [];
-        $keys = $dbi->getTableIndexes($db, $table);
+        $keys = $GLOBALS['dbi']->getTableIndexes($db, $table);
         foreach ($keys as $key) {
             if ($key['Non_unique'] != 0) {
                 continue;
@@ -437,14 +430,14 @@ class ExportHtmlword extends ExportPlugin
                     . '</td>';
             }
 
-            if ($do_comments && $cfgRelation['commwork']) {
+            if ($do_comments && $relationParameters->columnCommentsFeature !== null) {
                 $schema_insert .= '<td class="print">'
                     . (isset($comments[$field_name])
                         ? htmlspecialchars($comments[$field_name])
                         : '') . '</td>';
             }
 
-            if ($do_mime && $cfgRelation['mimework']) {
+            if ($do_mime && $relationParameters->browserTransformationFeature !== null) {
                 $schema_insert .= '<td class="print">'
                     . (isset($mime_map[$field_name]) ?
                         htmlspecialchars(
@@ -471,8 +464,6 @@ class ExportHtmlword extends ExportPlugin
      */
     protected function getTriggers($db, $table)
     {
-        global $dbi;
-
         $dump = '<table width="100%" cellspacing="1">';
         $dump .= '<tr class="print-category">';
         $dump .= '<th class="print">' . __('Name') . '</th>';
@@ -481,7 +472,7 @@ class ExportHtmlword extends ExportPlugin
         $dump .= '<td class="print"><strong>' . __('Definition') . '</strong></td>';
         $dump .= '</tr>';
 
-        $triggers = $dbi->getTriggers($db, $table);
+        $triggers = $GLOBALS['dbi']->getTriggers($db, $table);
 
         foreach ($triggers as $trigger) {
             $dump .= '<tr class="print-category">';
@@ -539,8 +530,6 @@ class ExportHtmlword extends ExportPlugin
         $dates = false,
         array $aliases = []
     ): bool {
-        global $dbi;
-
         $db_alias = $db;
         $table_alias = $table;
         $this->initAlias($aliases, $db_alias, $table_alias);
@@ -557,7 +546,7 @@ class ExportHtmlword extends ExportPlugin
                 break;
             case 'triggers':
                 $dump = '';
-                $triggers = $dbi->getTriggers($db, $table);
+                $triggers = $GLOBALS['dbi']->getTriggers($db, $table);
                 if ($triggers) {
                     $dump .= '<h2>'
                     . __('Triggers') . ' ' . htmlspecialchars($table_alias)

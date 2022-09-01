@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Engines\Innodb;
 use PhpMyAdmin\Partitioning\Partition;
 use PhpMyAdmin\Plugins\Export\ExportSql;
 
 use function __;
+use function array_keys;
 use function array_merge;
 use function count;
 use function explode;
@@ -134,7 +136,7 @@ class Operations
         $db
     ) {
         $views = [];
-        foreach ($tables_full as $each_table => $tmp) {
+        foreach (array_keys($tables_full) as $each_table) {
             // to be able to rename a db containing views,
             // first all the views are collected and a stand-in is created
             // the real views are created after the tables
@@ -175,7 +177,7 @@ class Operations
     public function copyTables(array $tables_full, $move, $db)
     {
         $sqlContraints = [];
-        foreach ($tables_full as $each_table => $tmp) {
+        foreach (array_keys($tables_full) as $each_table) {
             // skip the views; we have created stand-in definitions
             if ($this->dbi->getTable($db, (string) $each_table)->isView()) {
                 continue;
@@ -547,8 +549,6 @@ class Operations
      */
     public function getPartitionMaintenanceChoices(): array
     {
-        global $db, $table;
-
         $choices = [
             'ANALYZE' => __('Analyze'),
             'CHECK' => __('Check'),
@@ -558,7 +558,7 @@ class Operations
             'TRUNCATE' => __('Truncate'),
         ];
 
-        $partitionMethod = Partition::getPartitionMethod($db, $table);
+        $partitionMethod = Partition::getPartitionMethod($GLOBALS['db'], $GLOBALS['table']);
 
         // add COALESCE or DROP option to choices array depending on Partition method
         if (
@@ -585,34 +585,32 @@ class Operations
         array $urlParams,
         $hasRelationFeature
     ): array {
-        global $db, $table;
-
         if (! $hasRelationFeature) {
             return [];
         }
 
         $foreigners = [];
-        $this->dbi->selectDb($db);
-        $foreign = $this->relation->getForeigners($db, $table, '', 'internal');
+        $this->dbi->selectDb($GLOBALS['db']);
+        $foreign = $this->relation->getForeigners($GLOBALS['db'], $GLOBALS['table'], '', 'internal');
 
         foreach ($foreign as $master => $arr) {
             $joinQuery = 'SELECT '
-                . Util::backquote($table) . '.*'
-                . ' FROM ' . Util::backquote($table)
+                . Util::backquote($GLOBALS['table']) . '.*'
+                . ' FROM ' . Util::backquote($GLOBALS['table'])
                 . ' LEFT JOIN '
                 . Util::backquote($arr['foreign_db'])
                 . '.'
                 . Util::backquote($arr['foreign_table']);
 
-            if ($arr['foreign_table'] == $table) {
-                $foreignTable = $table . '1';
+            if ($arr['foreign_table'] == $GLOBALS['table']) {
+                $foreignTable = $GLOBALS['table'] . '1';
                 $joinQuery .= ' AS ' . Util::backquote($foreignTable);
             } else {
                 $foreignTable = $arr['foreign_table'];
             }
 
             $joinQuery .= ' ON '
-                . Util::backquote($table) . '.'
+                . Util::backquote($GLOBALS['table']) . '.'
                 . Util::backquote($master)
                 . ' = '
                 . Util::backquote($arr['foreign_db'])
@@ -625,7 +623,7 @@ class Operations
                 . Util::backquote($foreignTable) . '.'
                 . Util::backquote($arr['foreign_field'])
                 . ' IS NULL AND '
-                . Util::backquote($table) . '.'
+                . Util::backquote($GLOBALS['table']) . '.'
                 . Util::backquote($master)
                 . ' IS NOT NULL';
             $thisUrlParams = array_merge(
@@ -674,7 +672,7 @@ class Operations
         $transactional,
         $tbl_collation
     ) {
-        global $auto_increment;
+        $GLOBALS['auto_increment'] = $GLOBALS['auto_increment'] ?? null;
 
         $table_alters = [];
 
@@ -726,8 +724,8 @@ class Operations
         if (
             $pma_table->isEngine(['MYISAM', 'ARIA', 'INNODB', 'PBXT', 'ROCKSDB'])
             && ! empty($_POST['new_auto_increment'])
-            && (! isset($auto_increment)
-            || $_POST['new_auto_increment'] !== $auto_increment)
+            && (! isset($GLOBALS['auto_increment'])
+            || $_POST['new_auto_increment'] !== $GLOBALS['auto_increment'])
             && $_POST['new_auto_increment'] !== $_POST['hidden_auto_increment']
         ) {
             $table_alters[] = 'auto_increment = '

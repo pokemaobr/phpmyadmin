@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Export\Template;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\Export\Template as ExportTemplate;
 use PhpMyAdmin\Export\TemplateModel;
 use PhpMyAdmin\Http\ServerRequest;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
-
-use function is_string;
 
 final class UpdateController extends AbstractController
 {
@@ -35,25 +33,27 @@ final class UpdateController extends AbstractController
 
     public function __invoke(ServerRequest $request): void
     {
-        global $cfg;
-
         $templateId = (int) $request->getParsedBodyParam('templateId');
         /** @var string $templateData */
         $templateData = $request->getParsedBodyParam('templateData', '');
-        $cfgRelation = $this->relation->getRelationsParam();
 
-        if (! $cfgRelation['exporttemplateswork']) {
+        $exportTemplatesFeature = $this->relation->getRelationParameters()->exportTemplatesFeature;
+        if ($exportTemplatesFeature === null) {
             return;
         }
 
         $template = ExportTemplate::fromArray([
             'id' => $templateId,
-            'username' => $cfg['Server']['user'],
+            'username' => $GLOBALS['cfg']['Server']['user'],
             'data' => $templateData,
         ]);
-        $result = $this->model->update($cfgRelation['db'], $cfgRelation['export_templates'], $template);
+        $result = $this->model->update(
+            $exportTemplatesFeature->database,
+            $exportTemplatesFeature->exportTemplates,
+            $template
+        );
 
-        if (is_string($result)) {
+        if ($result !== '') {
             $this->response->setRequestStatus(false);
             $this->response->addJSON('message', $result);
 

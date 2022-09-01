@@ -10,6 +10,7 @@ namespace PhpMyAdmin\Gis;
 use PhpMyAdmin\Image\ImageWrapper;
 use TCPDF;
 
+use function defined;
 use function explode;
 use function floatval;
 use function mb_strripos;
@@ -35,8 +36,6 @@ abstract class GisGeometry
      * @param array  $scale_data data related to scaling
      *
      * @return string the code related to a row in the GIS dataset
-     *
-     * @access public
      */
     abstract public function prepareRowAsSvg($spatial, $label, $color, array $scale_data);
 
@@ -66,8 +65,6 @@ abstract class GisGeometry
      * @param TCPDF       $pdf        TCPDF instance
      *
      * @return TCPDF the modified TCPDF instance
-     *
-     * @access public
      */
     abstract public function prepareRowAsPdf(
         $spatial,
@@ -88,8 +85,6 @@ abstract class GisGeometry
      * @param array  $scale_data array containing data related to scaling
      *
      * @return string the JavaScript related to a row in the GIS dataset
-     *
-     * @access public
      */
     abstract public function prepareRowAsOl(
         $spatial,
@@ -105,8 +100,6 @@ abstract class GisGeometry
      * @param string $spatial spatial data of a row
      *
      * @return array array containing the min, max values for x and y coordinates
-     *
-     * @access public
      */
     abstract public function scaleRow($spatial);
 
@@ -118,8 +111,6 @@ abstract class GisGeometry
      * @param string|null $empty    value for empty points
      *
      * @return string WKT with the set of parameters passed by the GIS editor
-     *
-     * @access public
      */
     abstract public function generateWkt(array $gis_data, $index, $empty = '');
 
@@ -131,8 +122,6 @@ abstract class GisGeometry
      *
      * @return string OpenLayers.Bounds object that
      *                correspond to the bounds of GIS data
-     *
-     * @access protected
      */
     protected function getBoundsForOl(int $srid, array $scale_data)
     {
@@ -157,8 +146,6 @@ abstract class GisGeometry
      * @param array  $min_max   existing min, max values
      *
      * @return array the updated min, max values
-     *
-     * @access protected
      */
     protected function setMinMax($point_set, array $min_max)
     {
@@ -201,8 +188,6 @@ abstract class GisGeometry
      * @param string $value value of the GIS column
      *
      * @return array parameters for the GIS editor from the value of the GIS column
-     *
-     * @access protected
      */
     public function generateParams($value)
     {
@@ -232,8 +217,6 @@ abstract class GisGeometry
      * @param bool       $linear     if true, as a 1D array, else as a 2D array
      *
      * @return array scaled points
-     *
-     * @access protected
      */
     protected function extractPoints($point_set, $scale_data, $linear = false): array
     {
@@ -282,8 +265,6 @@ abstract class GisGeometry
      * @param int   $srid     spatial reference id
      *
      * @return string JavaScript for adding an array of polygons to OpenLayers
-     *
-     * @access protected
      */
     protected function getPolygonArrayForOpenLayers(array $polygons, int $srid)
     {
@@ -304,8 +285,6 @@ abstract class GisGeometry
      * @param int   $srid    spatial reference id
      *
      * @return string JavaScript for adding points for OpenLayers polygon
-     *
-     * @access protected
      */
     protected function getPolygonForOpenLayers(array $polygon, int $srid)
     {
@@ -323,8 +302,6 @@ abstract class GisGeometry
      *
      * @return string JavaScript for adding an array of LineString
      *                or LineRing to OpenLayers
-     *
-     * @access protected
      */
     protected function getLineArrayForOpenLayers(
         array $lines,
@@ -352,8 +329,6 @@ abstract class GisGeometry
      * @param bool  $is_line_string whether it's a LineString
      *
      * @return string JavaScript for adding a LineString or LineRing to OpenLayers
-     *
-     * @access protected
      */
     protected function getLineForOpenLayers(
         array $points_arr,
@@ -373,8 +348,6 @@ abstract class GisGeometry
      * @param int   $srid       spatial reference id
      *
      * @return string JavaScript for adding an array of points to OpenLayers
-     *
-     * @access protected
      */
     protected function getPointsArrayForOpenLayers(array $points_arr, int $srid)
     {
@@ -395,8 +368,6 @@ abstract class GisGeometry
      * @param int   $srid  spatial reference id
      *
      * @return string JavaScript for adding points to OpenLayers
-     *
-     * @access protected
      */
     protected function getPointForOpenLayers(array $point, int $srid)
     {
@@ -407,6 +378,6 @@ abstract class GisGeometry
 
     protected function getRandomId(): int
     {
-        return random_int(0, mt_getrandmax());
+        return ! defined('TESTSUITE') ? random_int(0, mt_getrandmax()) : 1234567890;
     }
 }

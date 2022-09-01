@@ -26,20 +26,16 @@ class Plugins
      */
     public function getAll(): array
     {
-        global $cfg;
-
         $sql = 'SHOW PLUGINS';
-        if (! $cfg['Server']['DisableIS']) {
+        if (! $GLOBALS['cfg']['Server']['DisableIS']) {
             $sql = 'SELECT * FROM information_schema.PLUGINS ORDER BY PLUGIN_TYPE, PLUGIN_NAME';
         }
 
         $result = $this->dbi->query($sql);
         $plugins = [];
-        while ($row = $this->dbi->fetchAssoc($result)) {
+        while ($row = $result->fetchAssoc()) {
             $plugins[] = $this->mapRowToPlugin($row);
         }
-
-        $this->dbi->freeResult($result);
 
         return $plugins;
     }
@@ -56,7 +52,7 @@ class Plugins
 
         $plugins = [];
 
-        while ($row = $this->dbi->fetchAssoc($result)) {
+        while ($row = $result->fetchAssoc()) {
             $plugins[$row['PLUGIN_NAME']] = $this->getTranslatedDescription($row['PLUGIN_DESCRIPTION']);
         }
 

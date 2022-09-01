@@ -9,8 +9,8 @@ declare(strict_types=1);
 namespace PhpMyAdmin\Navigation;
 
 use PhpMyAdmin\Config\PageSettings;
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\DatabaseInterface;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Sanitize;
 use PhpMyAdmin\Server\Select;
@@ -67,10 +67,8 @@ class Navigation
      */
     public function getDisplay(): string
     {
-        global $cfg;
-
         $logo = [
-            'is_displayed' => $cfg['NavigationDisplayLogo'],
+            'is_displayed' => $GLOBALS['cfg']['NavigationDisplayLogo'],
             'has_link' => false,
             'link' => '#',
             'attributes' => ' target="_blank" rel="noopener noreferrer"',
@@ -80,13 +78,13 @@ class Navigation
         $response = ResponseRenderer::getInstance();
         if (! $response->isAjax()) {
             $logo['source'] = $this->getLogoSource();
-            $logo['has_link'] = (string) $cfg['NavigationLogoLink'] !== '';
-            $logo['link'] = trim((string) $cfg['NavigationLogoLink']);
+            $logo['has_link'] = (string) $GLOBALS['cfg']['NavigationLogoLink'] !== '';
+            $logo['link'] = trim((string) $GLOBALS['cfg']['NavigationLogoLink']);
             if (! Sanitize::checkLink($logo['link'], true)) {
                 $logo['link'] = 'index.php';
             }
 
-            if ($cfg['NavigationLogoLinkWindow'] === 'main') {
+            if ($GLOBALS['cfg']['NavigationLogoLinkWindow'] === 'main') {
                 if (empty(parse_url($logo['link'], PHP_URL_HOST))) {
                     $hasStartChar = strpos($logo['link'], '?');
                     $logo['link'] .= Url::getCommon(
@@ -102,7 +100,7 @@ class Navigation
                 }
             }
 
-            if ($cfg['NavigationDisplayServers'] && count($cfg['Servers']) > 1) {
+            if ($GLOBALS['cfg']['NavigationDisplayServers'] && count($GLOBALS['cfg']['Servers']) > 1) {
                 $serverSelect = Select::render(true, true);
             }
 
@@ -114,7 +112,7 @@ class Navigation
         }
 
         if (! $response->isAjax() || ! empty($_POST['full']) || ! empty($_POST['reload'])) {
-            if ($cfg['ShowDatabasesNavigationAsTree']) {
+            if ($GLOBALS['cfg']['ShowDatabasesNavigationAsTree']) {
                 // provide database tree in navigation
                 $navRender = $this->tree->renderState();
             } else {
@@ -128,19 +126,19 @@ class Navigation
         return $this->template->render('navigation/main', [
             'is_ajax' => $response->isAjax(),
             'logo' => $logo,
-            'config_navigation_width' => $cfg['NavigationWidth'],
-            'is_synced' => $cfg['NavigationLinkWithMainPanel'],
-            'is_highlighted' => $cfg['NavigationTreePointerEnable'],
-            'is_autoexpanded' => $cfg['NavigationTreeAutoexpandSingleDb'],
+            'config_navigation_width' => $GLOBALS['cfg']['NavigationWidth'],
+            'is_synced' => $GLOBALS['cfg']['NavigationLinkWithMainPanel'],
+            'is_highlighted' => $GLOBALS['cfg']['NavigationTreePointerEnable'],
+            'is_autoexpanded' => $GLOBALS['cfg']['NavigationTreeAutoexpandSingleDb'],
             'server' => $GLOBALS['server'],
-            'auth_type' => $cfg['Server']['auth_type'],
-            'is_servers_displayed' => $cfg['NavigationDisplayServers'],
-            'servers' => $cfg['Servers'],
+            'auth_type' => $GLOBALS['cfg']['Server']['auth_type'],
+            'is_servers_displayed' => $GLOBALS['cfg']['NavigationDisplayServers'],
+            'servers' => $GLOBALS['cfg']['Servers'],
             'server_select' => $serverSelect ?? '',
             'navigation_tree' => $navRender,
             'is_navigation_settings_enabled' => ! defined('PMA_DISABLE_NAVI_SETTINGS'),
             'navigation_settings' => $navigationSettings ?? '',
-            'is_drag_drop_import_enabled' => $cfg['enable_drag_drop_import'] === true,
+            'is_drag_drop_import_enabled' => $GLOBALS['cfg']['enable_drag_drop_import'] === true,
             'is_mariadb' => $this->dbi->isMariaDB(),
         ]);
     }
@@ -159,8 +157,13 @@ class Navigation
         $dbName,
         $tableName = null
     ): void {
-        $navTable = Util::backquote($GLOBALS['cfgRelation']['db'])
-            . '.' . Util::backquote($GLOBALS['cfgRelation']['navigationhiding']);
+        $navigationItemsHidingFeature = $this->relation->getRelationParameters()->navigationItemsHidingFeature;
+        if ($navigationItemsHidingFeature === null) {
+            return;
+        }
+
+        $navTable = Util::backquote($navigationItemsHidingFeature->database)
+            . '.' . Util::backquote($navigationItemsHidingFeature->navigationHiding);
         $sqlQuery = 'INSERT INTO ' . $navTable
             . '(`username`, `item_name`, `item_type`, `db_name`, `table_name`)'
             . ' VALUES ('
@@ -170,7 +173,7 @@ class Navigation
             . "'" . $this->dbi->escapeString($dbName) . "',"
             . "'" . (! empty($tableName) ? $this->dbi->escapeString($tableName) : '' )
             . "')";
-        $this->relation->queryAsControlUser($sqlQuery, false);
+        $this->dbi->tryQueryAsControlUser($sqlQuery);
     }
 
     /**
@@ -188,8 +191,13 @@ class Navigation
         $dbName,
         $tableName = null
     ): void {
-        $navTable = Util::backquote($GLOBALS['cfgRelation']['db'])
-            . '.' . Util::backquote($GLOBALS['cfgRelation']['navigationhiding']);
+        $navigationItemsHidingFeature = $this->relation->getRelationParameters()->navigationItemsHidingFeature;
+        if ($navigationItemsHidingFeature === null) {
+            return;
+        }
+
+        $navTable = Util::backquote($navigationItemsHidingFeature->database)
+            . '.' . Util::backquote($navigationItemsHidingFeature->navigationHiding);
         $sqlQuery = 'DELETE FROM ' . $navTable
             . ' WHERE'
             . " `username`='"
@@ -201,7 +209,7 @@ class Navigation
                 ? " AND `table_name`='" . $this->dbi->escapeString($tableName) . "'"
                 : ''
             );
-        $this->relation->queryAsControlUser($sqlQuery, false);
+        $this->dbi->tryQueryAsControlUser($sqlQuery);
     }
 
     /**
@@ -243,19 +251,24 @@ class Navigation
      */
     private function getHiddenItems(string $database, ?string $table): array
     {
-        $navTable = Util::backquote($GLOBALS['cfgRelation']['db'])
-            . '.' . Util::backquote($GLOBALS['cfgRelation']['navigationhiding']);
+        $navigationItemsHidingFeature = $this->relation->getRelationParameters()->navigationItemsHidingFeature;
+        if ($navigationItemsHidingFeature === null) {
+            return [];
+        }
+
+        $navTable = Util::backquote($navigationItemsHidingFeature->database)
+            . '.' . Util::backquote($navigationItemsHidingFeature->navigationHiding);
         $sqlQuery = 'SELECT `item_name`, `item_type` FROM ' . $navTable
             . " WHERE `username`='"
             . $this->dbi->escapeString($GLOBALS['cfg']['Server']['user']) . "'"
             . " AND `db_name`='" . $this->dbi->escapeString($database) . "'"
             . " AND `table_name`='"
             . (! empty($table) ? $this->dbi->escapeString($table) : '') . "'";
-        $result = $this->relation->queryAsControlUser($sqlQuery, false);
+        $result = $this->dbi->tryQueryAsControlUser($sqlQuery);
 
         $hidden = [];
         if ($result) {
-            while ($row = $this->dbi->fetchArray($result)) {
+            foreach ($result as $row) {
                 $type = $row['item_type'];
                 if (! isset($hidden[$type])) {
                     $hidden[$type] = [];
@@ -265,8 +278,6 @@ class Navigation
             }
         }
 
-        $this->dbi->freeResult($result);
-
         return $hidden;
     }
 
@@ -275,15 +286,15 @@ class Navigation
      */
     private function getLogoSource(): string
     {
-        global $theme;
+        $GLOBALS['theme'] = $GLOBALS['theme'] ?? null;
 
-        if ($theme instanceof Theme) {
-            if (@file_exists($theme->getFsPath() . 'img/logo_left.png')) {
-                return $theme->getPath() . '/img/logo_left.png';
+        if ($GLOBALS['theme'] instanceof Theme) {
+            if (@file_exists($GLOBALS['theme']->getFsPath() . 'img/logo_left.png')) {
+                return $GLOBALS['theme']->getPath() . '/img/logo_left.png';
             }
 
-            if (@file_exists($theme->getFsPath() . 'img/pma_logo2.png')) {
-                return $theme->getPath() . '/img/pma_logo2.png';
+            if (@file_exists($GLOBALS['theme']->getFsPath() . 'img/pma_logo2.png')) {
+                return $GLOBALS['theme']->getPath() . '/img/pma_logo2.png';
             }
         }
 

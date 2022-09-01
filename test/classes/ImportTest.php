@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests;
 
-use PhpMyAdmin\Html\Generator;
 use PhpMyAdmin\Import;
-use PhpMyAdmin\SqlParser\Parser;
-use PhpMyAdmin\Url;
 
 use function time;
 
@@ -29,6 +26,12 @@ class ImportTest extends AbstractTestCase
         parent::setUp();
         $GLOBALS['server'] = 0;
         $GLOBALS['cfg']['ServerDefault'] = '';
+        $GLOBALS['complete_query'] = null;
+        $GLOBALS['display_query'] = null;
+        $GLOBALS['skip_queries'] = null;
+        $GLOBALS['max_sql_len'] = null;
+        $GLOBALS['sql_query_disabled'] = null;
+        $GLOBALS['executed_queries'] = null;
         $this->import = new Import();
     }
 
@@ -37,40 +40,38 @@ class ImportTest extends AbstractTestCase
      */
     public function testCheckTimeout(): void
     {
-        global $timestamp, $maximum_time, $timeout_passed;
-
         //Reinit values.
-        $timestamp = time();
-        $maximum_time = 0;
-        $timeout_passed = false;
+        $GLOBALS['timestamp'] = time();
+        $GLOBALS['maximum_time'] = 0;
+        $GLOBALS['timeout_passed'] = false;
 
         $this->assertFalse($this->import->checkTimeout());
 
         //Reinit values.
-        $timestamp = time();
-        $maximum_time = 0;
-        $timeout_passed = true;
+        $GLOBALS['timestamp'] = time();
+        $GLOBALS['maximum_time'] = 0;
+        $GLOBALS['timeout_passed'] = true;
 
         $this->assertFalse($this->import->checkTimeout());
 
         //Reinit values.
-        $timestamp = time();
-        $maximum_time = 30;
-        $timeout_passed = true;
+        $GLOBALS['timestamp'] = time();
+        $GLOBALS['maximum_time'] = 30;
+        $GLOBALS['timeout_passed'] = true;
 
         $this->assertTrue($this->import->checkTimeout());
 
         //Reinit values.
-        $timestamp = time() - 15;
-        $maximum_time = 30;
-        $timeout_passed = false;
+        $GLOBALS['timestamp'] = time() - 15;
+        $GLOBALS['maximum_time'] = 30;
+        $GLOBALS['timeout_passed'] = false;
 
         $this->assertFalse($this->import->checkTimeout());
 
         //Reinit values.
-        $timestamp = time() - 60;
-        $maximum_time = 30;
-        $timeout_passed = false;
+        $GLOBALS['timestamp'] = time() - 60;
+        $GLOBALS['maximum_time'] = 30;
+        $GLOBALS['timeout_passed'] = false;
 
         $this->assertTrue($this->import->checkTimeout());
     }
@@ -480,63 +481,6 @@ class ImportTest extends AbstractTestCase
     }
 
     /**
-     * Test for getMatchedRows.
-     */
-    public function testPMAGetMatchedRows(): void
-    {
-        $GLOBALS['db'] = 'PMA';
-
-        $updateQuery = 'UPDATE `table_1` SET `id` = 20 WHERE `id` > 10';
-        $simulatedUpdateQuery = 'SELECT `id` FROM `table_1` WHERE `id` > 10 AND (`id` <> 20)';
-
-        $deleteQuery = 'DELETE FROM `table_1` WHERE `id` > 10';
-        $simulatedDeleteQuery = 'SELECT * FROM `table_1` WHERE `id` > 10';
-
-        $this->simulatedQueryTest($updateQuery, $simulatedUpdateQuery);
-        $this->simulatedQueryTest($deleteQuery, $simulatedDeleteQuery);
-    }
-
-    /**
-     * Tests simulated UPDATE/DELETE query.
-     *
-     * @param string $sqlQuery       SQL query
-     * @param string $simulatedQuery Simulated query
-     */
-    public function simulatedQueryTest(string $sqlQuery, string $simulatedQuery): void
-    {
-        $parser = new Parser($sqlQuery);
-        $analyzed_sql_results = [
-            'query' => $sqlQuery,
-            'parser' => $parser,
-            'statement' => $parser->statements[0],
-        ];
-
-        $this->dummyDbi->addSelectDb('PMA');
-
-        $simulated_data = $this->import->getMatchedRows($analyzed_sql_results);
-
-        $this->assertAllSelectsConsumed();
-
-        // URL to matched rows.
-        $_url_params = [
-            'db' => 'PMA',
-            'sql_query' => $simulatedQuery,
-        ];
-        $matched_rows_url = Url::getFromRoute('/sql', $_url_params);
-
-        $this->assertEquals(
-            [
-                'sql_query' => Generator::formatSql(
-                    $analyzed_sql_results['query']
-                ),
-                'matched_rows' => 2,
-                'matched_rows_url' => $matched_rows_url,
-            ],
-            $simulated_data
-        );
-    }
-
-    /**
      * Test for checkIfRollbackPossible
      */
     public function testPMACheckIfRollbackPossible(): void
@@ -612,56 +556,27 @@ class ImportTest extends AbstractTestCase
         $GLOBALS['run_query'] = true;
         $sqlData = [];
 
-        $query = 'SELECT 1';
-        $full = 'SELECT 1';
-
-        $this->import->runQuery($query, $full, $sqlData);
+        $this->import->runQuery('SELECT 1', $sqlData);
 
         $this->assertSame([], $sqlData);
-        $this->assertSame([
-            'sql' => 'SELECT 1;',
-            'full' => 'SELECT 1;',
-        ], $GLOBALS['import_run_buffer']);
-        $this->assertNull($GLOBALS['sql_query']);
+        $this->assertSame('', $GLOBALS['sql_query']);
         $this->assertNull($GLOBALS['complete_query']);
         $this->assertNull($GLOBALS['display_query']);
 
-        $query = 'SELECT 2';
-        $full = 'SELECT 2';
+        $this->import->runQuery('SELECT 2', $sqlData);
 
-        $this->import->runQuery($query, $full, $sqlData);
-
-        $this->assertSame([
-            'valid_sql' => ['SELECT 1;'],
-            'valid_full' => ['SELECT 1;'],
-            'valid_queries' => 1,
-        ], $sqlData);
-        $this->assertSame([
-            'sql' => 'SELECT 2;',
-            'full' => 'SELECT 2;',
-        ], $GLOBALS['import_run_buffer']);
+        $this->assertSame(['SELECT 1;'], $sqlData);
         $this->assertSame('SELECT 1;', $GLOBALS['sql_query']);
         $this->assertSame('SELECT 1;', $GLOBALS['complete_query']);
         $this->assertSame('SELECT 1;', $GLOBALS['display_query']);
 
-        $query = '';
-        $full = '';
-
-        $this->import->runQuery($query, $full, $sqlData);
+        $this->import->runQuery('', $sqlData);
 
         $this->assertSame([
-            'valid_sql' => [
-                'SELECT 1;',
-                'SELECT 2;',
-            ],
-            'valid_full' => [
-                'SELECT 1;',
-                'SELECT 2;',
-            ],
-            'valid_queries' => 2,
+            'SELECT 1;',
+            'SELECT 2;',
         ], $sqlData);
 
-        $this->assertArrayNotHasKey('import_run_buffer', $GLOBALS);
         $this->assertSame('SELECT 2;', $GLOBALS['sql_query']);
         $this->assertSame('SELECT 1;SELECT 2;', $GLOBALS['complete_query']);
         $this->assertSame('SELECT 1;SELECT 2;', $GLOBALS['display_query']);

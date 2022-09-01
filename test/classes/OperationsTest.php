@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Operations;
-use PhpMyAdmin\Relation;
 
 use function array_merge;
 
@@ -31,10 +31,8 @@ class OperationsTest extends AbstractTestCase
      */
     public function testGetPartitionMaintenanceChoices(string $tableName, array $extraChoice): void
     {
-        global $db, $table;
-
-        $db = 'database';
-        $table = $tableName;
+        $GLOBALS['db'] = 'database';
+        $GLOBALS['table'] = $tableName;
 
         $choices = [
             'ANALYZE' => 'Analyze',

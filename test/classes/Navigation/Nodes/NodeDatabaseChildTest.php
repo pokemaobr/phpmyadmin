@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Navigation\Nodes;
 
+use PhpMyAdmin\ConfigStorage\RelationParameters;
 use PhpMyAdmin\Navigation\NodeFactory;
 use PhpMyAdmin\Navigation\Nodes\NodeDatabaseChild;
 use PhpMyAdmin\Tests\AbstractTestCase;
 use PhpMyAdmin\Url;
-use PhpMyAdmin\Version;
 use PHPUnit\Framework\MockObject\MockObject;
 
 /**
@@ -25,8 +25,6 @@ class NodeDatabaseChildTest extends AbstractTestCase
 
     /**
      * Sets up the fixture.
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
@@ -36,8 +34,12 @@ class NodeDatabaseChildTest extends AbstractTestCase
         $GLOBALS['cfg']['DefaultTabDatabase'] = 'structure';
         $GLOBALS['server'] = 1;
         $GLOBALS['cfg']['ServerDefault'] = 1;
-        $_SESSION['relation'][1]['version'] = Version::VERSION;
-        $_SESSION['relation'][1]['navwork'] = true;
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
+            'db' => 'pmadb',
+            'navwork' => true,
+            'navigationhiding' => 'navigationhiding',
+        ])->toArray();
         $this->object = $this->getMockForAbstractClass(
             NodeDatabaseChild::class,
             ['child']
@@ -46,8 +48,6 @@ class NodeDatabaseChildTest extends AbstractTestCase
 
     /**
      * Tears down the fixture.
-     *
-     * @access protected
      */
     protected function tearDown(): void
     {

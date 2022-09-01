@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Database;
 
+use PhpMyAdmin\ConfigStorage\RelationParameters;
 use PhpMyAdmin\Database\CentralColumns;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Tests\AbstractTestCase;
 use PhpMyAdmin\Types;
-use PhpMyAdmin\Version;
 
 use function array_slice;
 
 /**
  * @covers \PhpMyAdmin\Database\CentralColumns
+ * @runTestsInSeparateProcesses
+ * @preserveGlobalState disabled
  */
 class CentralColumnsTest extends AbstractTestCase
 {
@@ -102,16 +104,15 @@ class CentralColumnsTest extends AbstractTestCase
         $GLOBALS['db'] = 'PMA_db';
         $GLOBALS['table'] = 'PMA_table';
 
-        //$_SESSION
         $GLOBALS['server'] = 1;
-        $_SESSION['relation'][1] = [
-            'version' => Version::VERSION,
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'centralcolumnswork' => true,
-            'relwork' => 1,
+            'relwork' => true,
             'db' => 'phpmyadmin',
             'relation' => 'relation',
             'central_columns' => 'pma_central_columns',
-        ];
+        ])->toArray();
 
         // mock DBI
         $dbi = $this->getMockBuilder(DatabaseInterface::class)

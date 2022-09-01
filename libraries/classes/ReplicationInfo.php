@@ -80,7 +80,7 @@ final class ReplicationInfo
 
     public function load(?string $connection = null): void
     {
-        global $urlParams;
+        $GLOBALS['urlParams'] = $GLOBALS['urlParams'] ?? null;
 
         $this->setPrimaryStatus();
 
@@ -89,7 +89,7 @@ final class ReplicationInfo
 
             if ($this->multiPrimaryStatus) {
                 $this->setDefaultPrimaryConnection($connection);
-                $urlParams['master_connection'] = $connection;
+                $GLOBALS['urlParams']['primary_connection'] = $connection;
             }
         }
 
@@ -103,10 +103,7 @@ final class ReplicationInfo
         $this->primaryStatus = $this->dbi->fetchResult('SHOW MASTER STATUS');
     }
 
-    /**
-     * @return array
-     */
-    public function getPrimaryStatus()
+    public function getPrimaryStatus(): array
     {
         return $this->primaryStatus;
     }
@@ -116,10 +113,7 @@ final class ReplicationInfo
         $this->replicaStatus = $this->dbi->fetchResult('SHOW SLAVE STATUS');
     }
 
-    /**
-     * @return array
-     */
-    public function getReplicaStatus()
+    public function getReplicaStatus(): array
     {
         return $this->replicaStatus;
     }

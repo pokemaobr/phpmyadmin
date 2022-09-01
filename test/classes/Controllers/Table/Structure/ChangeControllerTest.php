@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Controllers\Table\Structure;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Controllers\Table\Structure\ChangeController;
-use PhpMyAdmin\Relation;
+use PhpMyAdmin\Table\ColumnsDefinition;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Tests\AbstractTestCase;
 use PhpMyAdmin\Tests\Stubs\ResponseRenderer as ResponseStub;
@@ -28,7 +29,6 @@ class ChangeControllerTest extends AbstractTestCase
         $_REQUEST['field'] = '_id';
 
         $response = new ResponseStub();
-        $template = new Template();
 
         $class = new ReflectionClass(ChangeController::class);
         $method = $class->getMethod('displayHtmlForColumnChange');
@@ -36,12 +36,9 @@ class ChangeControllerTest extends AbstractTestCase
 
         $ctrl = new ChangeController(
             $response,
-            $template,
-            $GLOBALS['db'],
-            $GLOBALS['table'],
-            new Relation($this->dbi, $template),
-            new Transformations(),
-            $this->dbi
+            new Template(),
+            $this->dbi,
+            new ColumnsDefinition($this->dbi, new Relation($this->dbi), new Transformations())
         );
 
         $method->invokeArgs($ctrl, [null]);

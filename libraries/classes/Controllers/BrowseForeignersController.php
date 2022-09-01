@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace PhpMyAdmin\Controllers;
 
 use PhpMyAdmin\BrowseForeigners;
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Http\ServerRequest;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
 
@@ -53,7 +53,7 @@ class BrowseForeignersController extends AbstractController
             return;
         }
 
-        $this->response->getFooter()->setMinimal();
+        $this->response->setMinimalFooter();
         $header = $this->response->getHeader();
         $header->disableMenuAndConsole();
         $header->setBodyId('body_browse_foreigners');

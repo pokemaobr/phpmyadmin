@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests;
 
+use PhpMyAdmin\ConfigStorage\RelationParameters;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Index;
 use PhpMyAdmin\Query\Cache;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\Table;
 use PhpMyAdmin\Tests\Stubs\DbiDummy;
+use PhpMyAdmin\Tests\Stubs\DummyResult;
 use stdClass;
 
 /**
@@ -36,9 +37,6 @@ class TableTest extends AbstractTestCase
         $GLOBALS['sql_if_not_exists'] = true;
         $GLOBALS['sql_drop_table'] = true;
         $GLOBALS['cfg']['Server']['table_uiprefs'] = 'pma__table_uiprefs';
-
-        $relation = new Relation($GLOBALS['dbi']);
-        $GLOBALS['cfgRelation'] = $relation->getRelationsParam();
         $GLOBALS['dblist'] = new stdClass();
         $GLOBALS['dblist']->databases = new class
         {
@@ -80,8 +78,8 @@ class TableTest extends AbstractTestCase
 
         $sql_copy_data = 'SELECT TABLE_NAME'
             . ' FROM information_schema.VIEWS'
-            . ' WHERE TABLE_SCHEMA = \'db_data\''
-            . ' AND TABLE_NAME = \'table_data\'';
+            . ' WHERE TABLE_SCHEMA = \'PMA_new\''
+            . ' AND TABLE_NAME = \'PMA_BookMark_new\'';
 
         $getUniqueColumns_sql = 'SHOW INDEXES FROM `PMA`.`PMA_BookMark`';
 
@@ -91,47 +89,41 @@ class TableTest extends AbstractTestCase
                 null,
                 null,
                 DatabaseInterface::CONNECT_USER,
-                0,
-                true,
+                ['PMA_BookMark'],
             ],
             [
                 $sql_copy_data,
                 null,
                 null,
                 DatabaseInterface::CONNECT_USER,
-                0,
-                false,
+                [],
             ],
             [
                 $sql_isView_false,
                 null,
                 null,
                 DatabaseInterface::CONNECT_USER,
-                0,
-                false,
+                [],
             ],
             [
                 $sql_isUpdatableView_true,
                 null,
                 null,
                 DatabaseInterface::CONNECT_USER,
-                0,
-                true,
+                ['PMA_BookMark'],
             ],
             [
                 $sql_isUpdatableView_false,
                 null,
                 null,
                 DatabaseInterface::CONNECT_USER,
-                0,
-                false,
+                [],
             ],
             [
                 $sql_analyzeStructure_true,
                 null,
                 null,
                 DatabaseInterface::CONNECT_USER,
-                0,
                 [
                     [
                         'COLUMN_NAME' => 'COLUMN_NAME',
@@ -147,7 +139,6 @@ class TableTest extends AbstractTestCase
                 ],
                 'Column_name',
                 DatabaseInterface::CONNECT_USER,
-                0,
                 [
                     ['index1'],
                     ['index3'],
@@ -159,7 +150,6 @@ class TableTest extends AbstractTestCase
                 'Column_name',
                 'Column_name',
                 DatabaseInterface::CONNECT_USER,
-                0,
                 [
                     'column1',
                     'column3',
@@ -174,7 +164,6 @@ class TableTest extends AbstractTestCase
                 'Field',
                 'Field',
                 DatabaseInterface::CONNECT_USER,
-                0,
                 [
                     'column1',
                     'column3',
@@ -189,7 +178,6 @@ class TableTest extends AbstractTestCase
                 null,
                 null,
                 DatabaseInterface::CONNECT_USER,
-                0,
                 [
                     [
                         'Field' => 'COLUMN_NAME1',
@@ -210,6 +198,8 @@ class TableTest extends AbstractTestCase
                 ],
             ],
         ];
+
+        $resultStub = $this->createMock(DummyResult::class);
 
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
             ->disableOriginalConstructor()
@@ -244,11 +234,12 @@ class TableTest extends AbstractTestCase
         $dbi->expects($this->any())->method('getTablesFull')
             ->will($this->returnValue($databases));
 
-        $dbi->expects($this->any())->method('numRows')
+        $resultStub->expects($this->any())
+            ->method('numRows')
             ->will($this->returnValue(20));
 
         $dbi->expects($this->any())->method('tryQuery')
-            ->will($this->returnValue(10));
+            ->will($this->returnValue($resultStub));
 
         $triggers = [
             [
@@ -268,24 +259,21 @@ class TableTest extends AbstractTestCase
         $dbi->expects($this->any())->method('getTriggers')
             ->will($this->returnValue($triggers));
 
-        $create_sql = 'CREATE TABLE `PMA`.`PMA_BookMark_2` (
-                    `id` int(11) NOT NULL AUTO_INCREMENT,
-                    `username` text NOT NULL';
         $dbi->expects($this->any())->method('query')
-            ->will($this->returnValue($create_sql));
+            ->will($this->returnValue($resultStub));
 
         $dbi->expects($this->any())->method('insertId')
             ->will($this->returnValue(10));
 
-        $dbi->expects($this->any())->method('fetchAssoc')
-            ->will($this->returnValue(null));
+        $resultStub->expects($this->any())->method('fetchAssoc')
+            ->will($this->returnValue([]));
 
         $value = ['Auto_increment' => 'Auto_increment'];
         $dbi->expects($this->any())->method('fetchSingleRow')
             ->will($this->returnValue($value));
 
-        $dbi->expects($this->any())->method('fetchRow')
-            ->will($this->returnValue(null));
+        $resultStub->expects($this->any())->method('fetchRow')
+            ->will($this->returnValue([]));
 
         $dbi->expects($this->any())->method('escapeString')
             ->will($this->returnArgument(0));
@@ -887,8 +875,6 @@ class TableTest extends AbstractTestCase
      */
     public function testDuplicateInfo(): void
     {
-        $work = 'PMA_work';
-        $pma_table = 'pma_table';
         $get_fields = [
             'filed0',
             'field6',
@@ -901,11 +887,15 @@ class TableTest extends AbstractTestCase
             'field3',
             'filed4',
         ];
-        $GLOBALS['cfgRelation'][$work] = true;
-        $GLOBALS['cfgRelation']['db'] = 'PMA_db';
-        $GLOBALS['cfgRelation'][$pma_table] = 'pma_table';
 
-        $ret = Table::duplicateInfo($work, $pma_table, $get_fields, $where_fields, $new_fields);
+        $relationParameters = RelationParameters::fromArray([
+            'db' => 'PMA_db',
+            'relwork' => true,
+            'relation' => 'relation',
+        ]);
+        $_SESSION = ['relation' => [$GLOBALS['server'] => $relationParameters->toArray()]];
+
+        $ret = Table::duplicateInfo('relwork', 'relation', $get_fields, $where_fields, $new_fields);
         $this->assertSame(-1, $ret);
     }
 
@@ -953,9 +943,7 @@ class TableTest extends AbstractTestCase
      */
     public function testIsMergeCase2(): void
     {
-        global $dbi;
-
-        $dbi->getCache()->cacheTableContent(
+        $GLOBALS['dbi']->getCache()->cacheTableContent(
             ['PMA', 'PMA_BookMark'],
             ['ENGINE' => 'MERGE']
         );
@@ -971,9 +959,7 @@ class TableTest extends AbstractTestCase
      */
     public function testIsMergeCase3(): void
     {
-        global $dbi;
-
-        $dbi->getCache()->cacheTableContent(
+        $GLOBALS['dbi']->getCache()->cacheTableContent(
             ['PMA', 'PMA_BookMark'],
             ['ENGINE' => 'MRG_MYISAM']
         );
@@ -1134,14 +1120,16 @@ class TableTest extends AbstractTestCase
             ->disableOriginalConstructor()
             ->getMock();
 
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi->expects($this->once())
             ->method('tryQuery')
             ->with('SELECT * FROM `db`.`table` LIMIT 1')
-            ->will($this->returnValue('v1'));
+            ->will($this->returnValue($resultStub));
 
         $dbi->expects($this->once())
             ->method('getFieldsMeta')
-            ->with('v1')
+            ->with($resultStub)
             ->will($this->returnValue(['aNonValidExampleToRefactor']));
 
         $GLOBALS['dbi'] = $dbi;
@@ -1280,13 +1268,16 @@ class TableTest extends AbstractTestCase
     public function testCheckIfMinRecordsExist(): void
     {
         $old_dbi = $GLOBALS['dbi'];
+
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
         $dbi->expects($this->any())
             ->method('tryQuery')
-            ->will($this->returnValue('res'));
-        $dbi->expects($this->any())
+            ->will($this->returnValue($resultStub));
+        $resultStub->expects($this->any())
             ->method('numRows')
             ->willReturnOnConsecutiveCalls(0, 10, 200);
         $dbi->expects($this->any())

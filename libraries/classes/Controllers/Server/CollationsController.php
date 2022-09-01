@@ -18,18 +18,18 @@ use PhpMyAdmin\Url;
  */
 class CollationsController extends AbstractController
 {
-    /** @var array|null */
+    /** @var array<string, Charset> */
     private $charsets;
 
-    /** @var array|null */
+    /** @var array<string, array<string, Collation>> */
     private $collations;
 
     /** @var DatabaseInterface */
     private $dbi;
 
     /**
-     * @param array|null $charsets
-     * @param array|null $collations
+     * @param array<string, Charset>|null                  $charsets
+     * @param array<string, array<string, Collation>>|null $collations
      */
     public function __construct(
         ResponseRenderer $response,
@@ -38,30 +38,24 @@ class CollationsController extends AbstractController
         ?array $charsets = null,
         ?array $collations = null
     ) {
-        global $cfg;
-
         parent::__construct($response, $template);
         $this->dbi = $dbi;
 
-        $this->charsets = $charsets ?? Charsets::getCharsets($this->dbi, $cfg['Server']['DisableIS']);
-        $this->collations = $collations ?? Charsets::getCollations($this->dbi, $cfg['Server']['DisableIS']);
+        $this->charsets = $charsets ?? Charsets::getCharsets($this->dbi, $GLOBALS['cfg']['Server']['DisableIS']);
+        $this->collations = $collations ?? Charsets::getCollations($this->dbi, $GLOBALS['cfg']['Server']['DisableIS']);
     }
 
     public function __invoke(): void
     {
-        global $errorUrl;
-
-        $errorUrl = Url::getFromRoute('/');
+        $GLOBALS['errorUrl'] = Url::getFromRoute('/');
 
         if ($this->dbi->isSuperUser()) {
             $this->dbi->selectDb('mysql');
         }
 
         $charsets = [];
-        /** @var Charset $charset */
         foreach ($this->charsets as $charset) {
             $charsetCollations = [];
-            /** @var Collation $collation */
             foreach ($this->collations[$charset->getName()] as $collation) {
                 $charsetCollations[] = [
                     'name' => $collation->getName(),

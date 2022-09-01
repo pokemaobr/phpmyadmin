@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Database;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Database\Qbe;
 use PhpMyAdmin\DatabaseInterface;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Tests\AbstractTestCase;
 
@@ -21,8 +21,6 @@ class QbeTest extends AbstractTestCase
     /**
      * Sets up the fixture, for example, opens a network connection.
      * This method is called before a test is executed.
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
@@ -44,7 +42,7 @@ class QbeTest extends AbstractTestCase
 
         $dbi->expects($this->any())
             ->method('fetchValue')
-            ->with('SHOW CREATE TABLE `pma_test`.`table1`', 0, 1)
+            ->with('SHOW CREATE TABLE `pma_test`.`table1`', 1)
             ->will($this->returnValue($create_table));
 
         $dbi->expects($this->any())
@@ -58,8 +56,6 @@ class QbeTest extends AbstractTestCase
     /**
      * Tears down the fixture, for example, closes a network connection.
      * This method is called after a test is executed.
-     *
-     * @access protected
      */
     protected function tearDown(): void
     {

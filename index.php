@@ -19,7 +19,7 @@ if (PHP_VERSION_ID < 70205) {
 define('PHPMYADMIN', true);
 // phpcs:enable
 
-require_once ROOT_PATH . 'libraries/vendor_config.php';
+require_once ROOT_PATH . 'libraries/constants.php';
 
 /**
  * Activate autoloader
@@ -35,9 +35,11 @@ if (! @is_readable(AUTOLOAD_FILE)) {
 
 require AUTOLOAD_FILE;
 
-global $route, $containerBuilder, $request;
-
 Common::run();
 
-$dispatcher = Routing::getDispatcher();
-Routing::callControllerForRoute($request, $route, $dispatcher, $containerBuilder);
+Routing::callControllerForRoute(
+    Common::getRequest(),
+    Routing::getCurrentRoute(),
+    Routing::getDispatcher(),
+    $GLOBALS['containerBuilder']
+);

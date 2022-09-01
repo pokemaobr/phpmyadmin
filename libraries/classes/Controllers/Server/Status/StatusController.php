@@ -40,9 +40,7 @@ class StatusController extends AbstractController
 
     public function __invoke(): void
     {
-        global $errorUrl;
-
-        $errorUrl = Url::getFromRoute('/');
+        $GLOBALS['errorUrl'] = Url::getFromRoute('/');
 
         if ($this->dbi->isSuperUser()) {
             $this->dbi->selectDb('mysql');
@@ -78,11 +76,11 @@ class StatusController extends AbstractController
             $connections = $this->getConnectionsInfo();
 
             if ($primaryInfo['status']) {
-                $replication .= $this->replicationGui->getHtmlForReplicationStatusTable('master');
+                $replication .= $this->replicationGui->getHtmlForReplicationStatusTable('primary');
             }
 
             if ($replicaInfo['status']) {
-                $replication .= $this->replicationGui->getHtmlForReplicationStatusTable('slave');
+                $replication .= $this->replicationGui->getHtmlForReplicationStatusTable('replica');
             }
         }
 
@@ -93,8 +91,8 @@ class StatusController extends AbstractController
             'start_time' => $startTime ?? null,
             'traffic' => $traffic,
             'connections' => $connections,
-            'is_master' => $primaryInfo['status'],
-            'is_slave' => $replicaInfo['status'],
+            'is_primary' => $primaryInfo['status'],
+            'is_replica' => $replicaInfo['status'],
             'replication' => $replication,
         ]);
     }

@@ -7,11 +7,11 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Plugins\TwoFactor;
 
+use CodeLts\U2F\U2FServer\U2FException;
+use CodeLts\U2F\U2FServer\U2FServer;
 use PhpMyAdmin\Plugins\TwoFactorPlugin;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\TwoFactor;
-use Samyoul\U2F\U2FServer\U2FException;
-use Samyoul\U2F\U2FServer\U2FServer;
 use stdClass;
 use Throwable;
 use Twig\Error\LoaderError;
@@ -19,6 +19,7 @@ use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 
 use function __;
+use function is_object;
 use function json_decode;
 use function json_encode;
 
@@ -81,7 +82,7 @@ class Key extends TwoFactorPlugin
         $this->provided = true;
         try {
             $response = json_decode($_POST['u2f_authentication_response']);
-            if ($response === null) {
+            if (! is_object($response)) {
                 return false;
             }
 
@@ -173,7 +174,7 @@ class Key extends TwoFactorPlugin
         $this->provided = true;
         try {
             $response = json_decode($_POST['u2f_registration_response']);
-            if ($response === null) {
+            if (! is_object($response)) {
                 return false;
             }
 

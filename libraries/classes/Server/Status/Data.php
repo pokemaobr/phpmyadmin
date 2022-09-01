@@ -190,22 +190,22 @@ class Data
         ];
 
         if ($primaryInfo['status']) {
-            $links['repl'][__('Show slave hosts')] = [
+            $links['repl'][__('Show replica hosts')] = [
                 'url' => Url::getFromRoute('/sql'),
                 'params' => Url::getCommon([
                     'sql_query' => 'SHOW SLAVE HOSTS',
                     'goto' => $this->selfUrl,
                 ], ''),
             ];
-            $links['repl'][__('Show master status')] = [
-                'url' => '#replication_master',
+            $links['repl'][__('Show primary status')] = [
+                'url' => '#replication_primary',
                 'params' => '',
             ];
         }
 
         if ($replicaInfo['status']) {
-            $links['repl'][__('Show slave status')] = [
-                'url' => '#replication_slave',
+            $links['repl'][__('Show replica status')] = [
+                'url' => '#replication_replica',
                 'params' => '',
             ];
         }
@@ -352,29 +352,24 @@ class Data
 
     public function __construct()
     {
-        global $dbi;
-
-        $this->replicationInfo = new ReplicationInfo($dbi);
-        $this->replicationInfo->load($_POST['master_connection'] ?? null);
+        $this->replicationInfo = new ReplicationInfo($GLOBALS['dbi']);
+        $this->replicationInfo->load($_POST['primary_connection'] ?? null);
 
         $this->selfUrl = basename($GLOBALS['PMA_PHP_SELF']);
 
         // get status from server
-        $server_status_result = $dbi->tryQuery('SHOW GLOBAL STATUS');
-        $server_status = [];
+        $server_status_result = $GLOBALS['dbi']->tryQuery('SHOW GLOBAL STATUS');
         if ($server_status_result === false) {
+            $server_status = [];
             $this->dataLoaded = false;
         } else {
             $this->dataLoaded = true;
-            while ($arr = $dbi->fetchRow($server_status_result)) {
-                $server_status[$arr[0]] = $arr[1];
-            }
-
-            $dbi->freeResult($server_status_result);
+            $server_status = $server_status_result->fetchAllKeyPair();
+            unset($server_status_result);
         }
 
         // for some calculations we require also some server settings
-        $server_variables = $dbi->fetchResult('SHOW GLOBAL VARIABLES', 0, 1);
+        $server_variables = $GLOBALS['dbi']->fetchResult('SHOW GLOBAL VARIABLES', 0, 1);
 
         // cleanup of some deprecated values
         $server_status = self::cleanDeprecated($server_status);

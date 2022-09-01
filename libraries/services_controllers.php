@@ -15,8 +15,7 @@ use PhpMyAdmin\Controllers\Export;
 use PhpMyAdmin\Controllers\GisDataEditorController;
 use PhpMyAdmin\Controllers\GitInfoController;
 use PhpMyAdmin\Controllers\HomeController;
-use PhpMyAdmin\Controllers\ImportController;
-use PhpMyAdmin\Controllers\ImportStatusController;
+use PhpMyAdmin\Controllers\Import;
 use PhpMyAdmin\Controllers\JavaScriptMessagesController;
 use PhpMyAdmin\Controllers\LicenseController;
 use PhpMyAdmin\Controllers\LintController;
@@ -101,7 +100,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$centralColumns' => '@central_columns',
             ],
         ],
@@ -110,7 +108,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$centralColumns' => '@central_columns',
             ],
         ],
@@ -119,7 +116,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$relation' => '@relation',
                 '$transformations' => '@transformations',
                 '$dbi' => '@dbi',
@@ -130,7 +126,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$databaseDesigner' => '@designer',
                 '$designerCommon' => '@designer_common',
             ],
@@ -140,7 +135,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$events' => '@events',
                 '$dbi' => '@dbi',
             ],
@@ -150,7 +144,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$export' => '@export',
                 '$exportOptions' => '@export_options',
             ],
@@ -160,7 +153,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -184,7 +176,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -193,7 +184,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$operations' => '@operations',
                 '$dbi' => '@dbi',
             ],
@@ -203,7 +193,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$operations' => '@operations',
                 '$checkUserPrivileges' => '@check_user_privileges',
                 '$relation' => '@relation',
@@ -216,7 +205,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$privileges' => '@server_privileges',
                 '$dbi' => '@dbi',
             ],
@@ -226,7 +214,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$relation' => '@relation',
                 '$dbi' => '@dbi',
             ],
@@ -236,7 +223,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$checkUserPrivileges' => '@check_user_privileges',
                 '$dbi' => '@dbi',
             ],
@@ -246,7 +232,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -255,7 +240,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -264,7 +248,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$sqlQueryForm' => '@sql_query_form',
             ],
         ],
@@ -273,7 +256,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
             ],
         ],
         Database\Structure\AddPrefixController::class => [
@@ -281,7 +263,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
             ],
         ],
         Database\Structure\AddPrefixTableController::class => [
@@ -289,7 +270,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Database\StructureController::class,
             ],
@@ -299,7 +279,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Database\StructureController::class,
             ],
@@ -309,7 +288,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Database\StructureController::class,
             ],
@@ -319,7 +297,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Database\StructureController::class,
             ],
@@ -329,7 +306,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
             ],
         ],
         Database\Structure\CopyFormController::class => [
@@ -337,7 +313,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
             ],
         ],
         Database\Structure\CopyTableController::class => [
@@ -345,7 +320,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$operations' => '@operations',
                 '$structureController' => '@' . Database\StructureController::class,
             ],
@@ -355,7 +329,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$structureController' => '@' . Database\StructureController::class,
             ],
         ],
@@ -364,7 +337,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -373,7 +345,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
                 '$relationCleanup' => '@relation_cleanup',
                 '$structureController' => '@' . Database\StructureController::class,
@@ -384,7 +355,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
             ],
         ],
         Database\Structure\EmptyTableController::class => [
@@ -392,7 +362,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
                 '$relation' => '@relation',
                 '$relationCleanup' => '@relation_cleanup',
@@ -406,7 +375,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$relation' => '@relation',
             ],
         ],
@@ -415,7 +383,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -424,7 +391,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Database\StructureController::class,
             ],
@@ -434,7 +400,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -443,7 +408,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$relation' => '@relation',
                 '$replication' => '@replication',
                 '$relationCleanup' => '@relation_cleanup',
@@ -457,7 +421,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$tracking' => '@tracking',
                 '$dbi' => '@dbi',
             ],
@@ -467,7 +430,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -500,7 +462,6 @@ return [
                 '$response' => '@response',
                 '$template' => '@template',
                 '$export' => '@export',
-                '$relation' => '@relation',
             ],
         ],
         Export\TablesController::class => [
@@ -572,8 +533,8 @@ return [
                 '$dbi' => '@dbi',
             ],
         ],
-        ImportController::class => [
-            'class' => ImportController::class,
+        Import\ImportController::class => [
+            'class' => Import\ImportController::class,
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
@@ -582,8 +543,16 @@ return [
                 '$dbi' => '@dbi',
             ],
         ],
-        ImportStatusController::class => [
-            'class' => ImportStatusController::class,
+        Import\SimulateDmlController::class => [
+            'class' => Import\SimulateDmlController::class,
+            'arguments' => [
+                '$response' => '@response',
+                '$template' => '@template',
+                '$simulateDml' => '@import_simulate_dml',
+            ],
+        ],
+        Import\StatusController::class => [
+            'class' => Import\StatusController::class,
             'arguments' => ['$template' => '@template'],
         ],
         JavaScriptMessagesController::class => [
@@ -717,10 +686,7 @@ return [
         ],
         SchemaExportController::class => [
             'class' => SchemaExportController::class,
-            'arguments' => [
-                '$export' => '@export',
-                '$relation' => '@relation',
-            ],
+            'arguments' => ['$export' => '@export'],
         ],
         Server\BinlogController::class => [
             'class' => Server\BinlogController::class,
@@ -1077,12 +1043,10 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$transformations' => '@transformations',
                 '$config' => '@config',
-                '$relation' => '@relation',
                 '$dbi' => '@dbi',
+                '$columnsDefinition' => '@table_columns_definition',
             ],
         ],
         Table\ChangeController::class => [
@@ -1090,8 +1054,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$insertEdit' => '@insert_edit',
                 '$relation' => '@relation',
             ],
@@ -1101,8 +1063,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$changeController' => '@' . Table\ChangeController::class,
             ],
         ],
@@ -1111,8 +1071,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1121,12 +1079,10 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$transformations' => '@transformations',
                 '$config' => '@config',
-                '$relation' => '@relation',
                 '$dbi' => '@dbi',
+                '$columnsDefinition' => '@table_columns_definition',
             ],
         ],
         Table\DeleteConfirmController::class => [
@@ -1134,8 +1090,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
             ],
         ],
         Table\DeleteRowsController::class => [
@@ -1143,8 +1097,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1153,8 +1105,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
             ],
         ],
         Table\DropColumnController::class => [
@@ -1162,8 +1112,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$flash' => '@flash',
                 '$relationCleanup' => '@relation_cleanup',
@@ -1174,8 +1122,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$export' => '@export_options',
             ],
         ],
@@ -1184,8 +1130,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$exportController' => '@' . Table\ExportController::class,
             ],
         ],
@@ -1194,8 +1138,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1204,8 +1146,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1214,8 +1154,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1224,8 +1162,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1234,8 +1170,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$indexes' => '@table_indexes',
             ],
@@ -1245,8 +1179,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$indexes' => '@table_indexes',
             ],
@@ -1256,8 +1188,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$model' => '@table_maintenance',
                 '$config' => '@config',
             ],
@@ -1267,8 +1197,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$model' => '@table_maintenance',
                 '$config' => '@config',
             ],
@@ -1278,8 +1206,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$model' => '@table_maintenance',
                 '$config' => '@config',
             ],
@@ -1289,8 +1215,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$model' => '@table_maintenance',
                 '$config' => '@config',
             ],
@@ -1300,8 +1224,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$model' => '@table_maintenance',
                 '$config' => '@config',
             ],
@@ -1311,8 +1233,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$maintenance' => '@partitioning_maintenance',
             ],
         ],
@@ -1321,8 +1241,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$maintenance' => '@partitioning_maintenance',
             ],
         ],
@@ -1331,8 +1249,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$maintenance' => '@partitioning_maintenance',
             ],
         ],
@@ -1341,8 +1257,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$maintenance' => '@partitioning_maintenance',
             ],
         ],
@@ -1351,8 +1265,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$maintenance' => '@partitioning_maintenance',
             ],
         ],
@@ -1361,8 +1273,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$maintenance' => '@partitioning_maintenance',
             ],
         ],
@@ -1371,8 +1281,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$maintenance' => '@partitioning_maintenance',
             ],
         ],
@@ -1381,8 +1289,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$operations' => '@operations',
                 '$checkUserPrivileges' => '@check_user_privileges',
                 '$relation' => '@relation',
@@ -1394,8 +1300,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$privileges' => '@server_privileges',
                 '$dbi' => '@dbi',
             ],
@@ -1405,8 +1309,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
             ],
         ],
         Table\RelationController::class => [
@@ -1414,8 +1316,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$relation' => '@relation',
                 '$dbi' => '@dbi',
             ],
@@ -1425,8 +1325,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$insertEdit' => '@insert_edit',
                 '$transformations' => '@transformations',
                 '$relation' => '@relation',
@@ -1438,8 +1336,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$search' => '@table_search',
                 '$relation' => '@relation',
                 '$dbi' => '@dbi',
@@ -1450,8 +1346,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$sqlQueryForm' => '@sql_query_form',
             ],
         ],
@@ -1460,8 +1354,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1471,8 +1363,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$sqlController' => '@' . Sql\SqlController::class,
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1482,8 +1372,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$sql' => '@sql',
             ],
         ],
@@ -1492,8 +1380,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$centralColumns' => '@central_columns',
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1503,8 +1389,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$centralColumns' => '@central_columns',
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1514,11 +1398,8 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
-                '$relation' => '@relation',
-                '$transformations' => '@transformations',
                 '$dbi' => '@dbi',
+                '$columnsDefinition' => '@table_columns_definition',
             ],
         ],
         Table\Structure\FulltextController::class => [
@@ -1526,8 +1407,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1537,8 +1416,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1547,8 +1424,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$createAddField' => '@create_add_field',
                 '$structureController' => '@' . Table\StructureController::class,
@@ -1559,8 +1434,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1570,8 +1443,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
             ],
         ],
         Table\Structure\SaveController::class => [
@@ -1579,8 +1450,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$relation' => '@relation',
                 '$transformations' => '@transformations',
                 '$dbi' => '@dbi',
@@ -1592,8 +1461,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1603,8 +1470,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
                 '$structureController' => '@' . Table\StructureController::class,
             ],
@@ -1614,8 +1479,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$relation' => '@relation',
                 '$transformations' => '@transformations',
                 '$createAddField' => '@create_add_field',
@@ -1629,8 +1492,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$tracking' => '@tracking',
             ],
         ],
@@ -1639,8 +1500,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$dbi' => '@dbi',
             ],
         ],
@@ -1649,8 +1508,6 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
-                '$db' => '%db%',
-                '$table' => '%table%',
                 '$search' => '@table_search',
                 '$relation' => '@relation',
                 '$dbi' => '@dbi',
@@ -1678,6 +1535,7 @@ return [
                 '$response' => '@response',
                 '$template' => '@template',
                 '$themeManager' => '@theme_manager',
+                '$userPreferences' => '@user_preferences',
             ],
         ],
         Transformation\OverviewController::class => [
@@ -1712,6 +1570,7 @@ return [
             'arguments' => [
                 '$response' => '@response',
                 '$template' => '@template',
+                '$versionInformation' => '@version_information',
             ],
         ],
         View\CreateController::class => [

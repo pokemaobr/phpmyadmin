@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Database\Designer;
 
+use PhpMyAdmin\ConfigStorage\Relation;
+use PhpMyAdmin\ConfigStorage\RelationParameters;
 use PhpMyAdmin\Database\Designer\Common;
 use PhpMyAdmin\DatabaseInterface;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\Tests\AbstractTestCase;
+use PhpMyAdmin\Tests\Stubs\DummyResult;
 use PhpMyAdmin\Version;
 
 use function sprintf;
@@ -67,8 +69,7 @@ class CommonTest extends AbstractTestCase
             WHERE pdf_page_number = " . $pg,
                 'name',
                 null,
-                DatabaseInterface::CONNECT_CONTROL,
-                DatabaseInterface::QUERY_STORE
+                DatabaseInterface::CONNECT_CONTROL
             );
         $GLOBALS['dbi'] = $dbi;
 
@@ -98,8 +99,7 @@ class CommonTest extends AbstractTestCase
                 . ' WHERE `page_nr` = ' . $pg,
                 null,
                 null,
-                DatabaseInterface::CONNECT_CONTROL,
-                DatabaseInterface::QUERY_STORE
+                DatabaseInterface::CONNECT_CONTROL
             )
             ->will($this->returnValue([$pageName]));
         $GLOBALS['dbi'] = $dbi;
@@ -118,13 +118,15 @@ class CommonTest extends AbstractTestCase
     {
         $pg = 1;
 
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
         $dbi->expects($this->exactly(2))
-            ->method('query')
-            ->willReturnOnConsecutiveCalls(true, true);
+            ->method('queryAsControlUser')
+            ->willReturnOnConsecutiveCalls($resultStub, $resultStub);
         $dbi->expects($this->any())->method('escapeString')
             ->will($this->returnArgument(0));
 
@@ -156,8 +158,7 @@ class CommonTest extends AbstractTestCase
                 . " AND `page_descr` = '" . $db . "'",
                 null,
                 null,
-                DatabaseInterface::CONNECT_CONTROL,
-                DatabaseInterface::QUERY_STORE
+                DatabaseInterface::CONNECT_CONTROL
             )
             ->will($this->returnValue([$default_pg]));
         $dbi->expects($this->any())->method('escapeString')
@@ -189,8 +190,7 @@ class CommonTest extends AbstractTestCase
                 . " AND `page_descr` = '" . $db . "'",
                 null,
                 null,
-                DatabaseInterface::CONNECT_CONTROL,
-                DatabaseInterface::QUERY_STORE
+                DatabaseInterface::CONNECT_CONTROL
             )
             ->will($this->returnValue([]));
         $dbi->expects($this->any())->method('escapeString')
@@ -223,8 +223,7 @@ class CommonTest extends AbstractTestCase
                 . " AND `page_descr` = '" . $db . "'",
                 null,
                 null,
-                DatabaseInterface::CONNECT_CONTROL,
-                DatabaseInterface::QUERY_STORE
+                DatabaseInterface::CONNECT_CONTROL
             )
             ->will($this->returnValue([$default_pg]));
         $dbi->expects($this->any())->method('escapeString')
@@ -354,13 +353,12 @@ class CommonTest extends AbstractTestCase
     {
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
         $GLOBALS['cfg']['NaturalOrder'] = false;
-        $_SESSION['relation'][$GLOBALS['server']] = [
-            'version' => Version::VERSION,
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'db' => 'pmadb',
-            'relwork' => false,
-            'trackingwork' => false,
             'relation' => 'rel db',
-        ];
+        ])->toArray();
+
         parent::setGlobalDbi();
         $this->loadTestDataForRelationDeleteAddTests(
             'CREATE TABLE `table\'2` (`field\'1` int(11) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=latin1'
@@ -378,13 +376,13 @@ class CommonTest extends AbstractTestCase
     {
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
         $GLOBALS['cfg']['NaturalOrder'] = false;
-        $_SESSION['relation'][$GLOBALS['server']] = [
-            'version' => Version::VERSION,
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'db' => 'pmadb',
             'relwork' => true,
-            'trackingwork' => false,
             'relation' => 'rel db',
-        ];
+        ])->toArray();
+
         parent::setGlobalDbi();
 
         $this->loadTestDataForRelationDeleteAddTests(
@@ -421,13 +419,12 @@ class CommonTest extends AbstractTestCase
     {
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
         $GLOBALS['cfg']['NaturalOrder'] = false;
-        $_SESSION['relation'][$GLOBALS['server']] = [
-            'version' => Version::VERSION,
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'db' => 'pmadb',
             'relwork' => true,
-            'trackingwork' => false,
             'relation' => 'rel db',
-        ];
+        ])->toArray();
 
         parent::setGlobalDbi();
 
@@ -485,13 +482,13 @@ class CommonTest extends AbstractTestCase
     {
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
         $GLOBALS['cfg']['NaturalOrder'] = false;
-        $_SESSION['relation'][$GLOBALS['server']] = [
-            'version' => Version::VERSION,
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'db' => 'pmadb',
             'relwork' => true,
-            'trackingwork' => false,
             'relation' => 'rel db',
-        ];
+        ])->toArray();
+
         parent::setGlobalDbi();
 
         $this->loadTestDataForRelationDeleteAddTests(

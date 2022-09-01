@@ -7,18 +7,18 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Query\Utilities;
 use PhpMyAdmin\Utils\SessionCache;
 
 use function __;
-use function array_key_exists;
+use function array_intersect_key;
 use function count;
 use function in_array;
 use function mb_strpos;
 use function mb_strstr;
 use function mb_substr;
 use function preg_replace;
-use function strlen;
 
 /**
  * Class for generating the top menu
@@ -28,14 +28,16 @@ class Menu
     /**
      * Database name
      *
-     * @access private
      * @var string
      */
     private $db;
+
+    /** @var DatabaseInterface */
+    private $dbi;
+
     /**
      * Table name
      *
-     * @access private
      * @var string
      */
     private $table;
@@ -52,11 +54,10 @@ class Menu
      * @param string $db    Database name
      * @param string $table Table name
      */
-    public function __construct($db, $table)
+    public function __construct(DatabaseInterface $dbi, string $db, string $table)
     {
-        global $dbi;
-
         $this->db = $db;
+        $this->dbi = $dbi;
         $this->table = $table;
         $this->relation = new Relation($dbi);
         $this->template = new Template();
@@ -64,10 +65,8 @@ class Menu
 
     /**
      * Returns the menu and the breadcrumbs as a string
-     *
-     * @return string
      */
-    public function getDisplay()
+    public function getDisplay(): string
     {
         $retval = $this->getBreadcrumbs();
         $retval .= $this->getMenu();
@@ -84,15 +83,13 @@ class Menu
     {
         $urlParams = [];
 
-        $hasDbArg = strlen($this->db) > 0;
-
         // The URL will not work if the table is defined without a database
-        if (strlen((string) $this->table) > 0 && $hasDbArg) {
+        if ($this->table !== '' && $this->db !== '') {
             $tabs = $this->getTableTabs();
             $urlParams['db'] = $this->db;
             $urlParams['table'] = $this->table;
             $level = 'table';
-        } elseif ($hasDbArg) {
+        } elseif ($this->db !== '') {
             $tabs = $this->getDbTabs();
             $urlParams['db'] = $this->db;
             $level = 'db';
@@ -102,13 +99,8 @@ class Menu
         }
 
         $allowedTabs = $this->getAllowedTabs($level);
-        foreach ($tabs as $key => $value) {
-            if (array_key_exists($key, $allowedTabs)) {
-                continue;
-            }
-
-            unset($tabs[$key]);
-        }
+        // Filter out any tabs that are not allowed
+        $tabs = array_intersect_key($tabs, $allowedTabs);
 
         return $this->template->render('top_menu', [
             'tabs' => $tabs,
@@ -125,35 +117,33 @@ class Menu
      */
     private function getAllowedTabs($level)
     {
-        global $dbi;
-
         $cacheKey = 'menu-levels-' . $level;
         if (SessionCache::has($cacheKey)) {
             return SessionCache::get($cacheKey);
         }
 
-        $allowedTabs = Util::getMenuTabList($level);
-        $cfgRelation = $this->relation->getRelationsParam();
-        if ($cfgRelation['menuswork']) {
-            $groupTable = Util::backquote($cfgRelation['db'])
-                . '.'
-                . Util::backquote($cfgRelation['usergroups']);
-            $userTable = Util::backquote($cfgRelation['db'])
-                . '.' . Util::backquote($cfgRelation['users']);
+        $allowedTabs = Util::getMenuTabList($level) ?? [];
+        $configurableMenusFeature = $this->relation->getRelationParameters()->configurableMenusFeature;
+        if ($configurableMenusFeature !== null) {
+            $groupTable = Util::backquote($configurableMenusFeature->database)
+                . '.' . Util::backquote($configurableMenusFeature->userGroups);
+            $userTable = Util::backquote($configurableMenusFeature->database)
+                . '.' . Util::backquote($configurableMenusFeature->users);
 
             $sqlQuery = 'SELECT `tab` FROM ' . $groupTable
                 . " WHERE `allowed` = 'N'"
                 . " AND `tab` LIKE '" . $level . "%'"
                 . ' AND `usergroup` = (SELECT usergroup FROM '
                 . $userTable . " WHERE `username` = '"
-                . $dbi->escapeString($GLOBALS['cfg']['Server']['user']) . "')";
+                . $this->dbi->escapeString($GLOBALS['cfg']['Server']['user']) . "')";
 
-            $result = $this->relation->queryAsControlUser($sqlQuery, false);
+            $result = $this->dbi->tryQueryAsControlUser($sqlQuery);
             if ($result) {
-                while ($row = $dbi->fetchAssoc($result)) {
+                while ($row = $result->fetchAssoc()) {
+                    $tab = (string) $row['tab'];
                     $tabName = mb_substr(
-                        $row['tab'],
-                        mb_strpos($row['tab'], '_') + 1
+                        $tab,
+                        mb_strpos($tab, '_') + 1
                     );
                     unset($allowedTabs[$tabName]);
                 }
@@ -172,30 +162,27 @@ class Menu
      */
     private function getBreadcrumbs(): string
     {
-        global $cfg, $dbi;
-
         $server = [];
         $database = [];
         $table = [];
 
-        if (empty($cfg['Server']['host'])) {
-            $cfg['Server']['host'] = '';
+        if (empty($GLOBALS['cfg']['Server']['host'])) {
+            $GLOBALS['cfg']['Server']['host'] = '';
         }
 
-        $server['name'] = ! empty($cfg['Server']['verbose'])
-            ? $cfg['Server']['verbose'] : $cfg['Server']['host'];
-        $server['name'] .= empty($cfg['Server']['port'])
-            ? '' : ':' . $cfg['Server']['port'];
-        $server['url'] = Util::getUrlForOption($cfg['DefaultTabServer'], 'server');
+        $server['name'] = ! empty($GLOBALS['cfg']['Server']['verbose'])
+            ? $GLOBALS['cfg']['Server']['verbose'] : $GLOBALS['cfg']['Server']['host'];
+        $server['name'] .= empty($GLOBALS['cfg']['Server']['port'])
+            ? '' : ':' . $GLOBALS['cfg']['Server']['port'];
+        $server['url'] = Util::getUrlForOption($GLOBALS['cfg']['DefaultTabServer'], 'server');
 
-        if (strlen($this->db) > 0) {
+        if ($this->db !== '') {
             $database['name'] = $this->db;
-            $database['url'] = Util::getUrlForOption($cfg['DefaultTabDatabase'], 'database');
-            if (strlen((string) $this->table) > 0) {
+            $database['url'] = Util::getUrlForOption($GLOBALS['cfg']['DefaultTabDatabase'], 'database');
+            if ($this->table !== '') {
                 $table['name'] = $this->table;
-                $table['url'] = Util::getUrlForOption($cfg['DefaultTabTable'], 'table');
-                /** @var Table $tableObj */
-                $tableObj = $dbi->getTable($this->db, $this->table);
+                $table['url'] = Util::getUrlForOption($GLOBALS['cfg']['DefaultTabTable'], 'table');
+                $tableObj = $this->dbi->getTable($this->db, $this->table);
                 $table['is_view'] = $tableObj->isView();
                 $table['comment'] = '';
                 if (! $table['is_view']) {
@@ -207,11 +194,11 @@ class Menu
                 }
             } else {
                 // no table selected, display database comment if present
-                $cfgRelation = $this->relation->getRelationsParam();
+                $relationParameters = $this->relation->getRelationParameters();
 
                 // Get additional information about tables for tooltip is done
                 // in Util::getDbInfo() only once
-                if ($cfgRelation['commwork']) {
+                if ($relationParameters->columnCommentsFeature !== null) {
                     $database['comment'] = $this->relation->getDbComment($this->db);
                 }
             }
@@ -229,21 +216,21 @@ class Menu
      *
      * @return array Data for generating table tabs
      */
-    private function getTableTabs()
+    private function getTableTabs(): array
     {
-        global $route, $dbi;
+        $route = Routing::getCurrentRoute();
 
         $isSystemSchema = Utilities::isSystemSchema($this->db);
-        $tableIsView = $dbi->getTable($this->db, $this->table)
+        $tableIsView = $this->dbi->getTable($this->db, $this->table)
             ->isView();
         $updatableView = false;
         if ($tableIsView) {
-            $updatableView = $dbi->getTable($this->db, $this->table)
+            $updatableView = $this->dbi->getTable($this->db, $this->table)
                 ->isUpdatableView();
         }
 
-        $isSuperUser = $dbi->isSuperUser();
-        $isCreateOrGrantUser = $dbi->isGrantUser() || $dbi->isCreateUser();
+        $isSuperUser = $this->dbi->isSuperUser();
+        $isCreateOrGrantUser = $this->dbi->isGrantUser() || $this->dbi->isCreateUser();
 
         $tabs = [];
 
@@ -351,19 +338,16 @@ class Menu
      *
      * @return array Data for generating db tabs
      */
-    private function getDbTabs()
+    private function getDbTabs(): array
     {
-        global $route, $dbi;
+        $route = Routing::getCurrentRoute();
 
         $isSystemSchema = Utilities::isSystemSchema($this->db);
-        $numTables = count($dbi->getTables($this->db));
-        $isSuperUser = $dbi->isSuperUser();
-        $isCreateOrGrantUser = $dbi->isGrantUser() || $dbi->isCreateUser();
+        $numTables = count($this->dbi->getTables($this->db));
+        $isSuperUser = $this->dbi->isSuperUser();
+        $isCreateOrGrantUser = $this->dbi->isGrantUser() || $this->dbi->isCreateUser();
 
-        /**
-         * Gets the relation settings
-         */
-        $cfgRelation = $this->relation->getRelationsParam();
+        $relationParameters = $this->relation->getRelationParameters();
 
         $tabs = [];
 
@@ -456,7 +440,7 @@ class Menu
             $tabs['designer']['active'] = $route === '/database/designer';
         }
 
-        if (! $isSystemSchema && $cfgRelation['centralcolumnswork']) {
+        if (! $isSystemSchema && $relationParameters->centralColumnsFeature !== null) {
             $tabs['central_columns']['text'] = __('Central columns');
             $tabs['central_columns']['icon'] = 'centralColumns';
             $tabs['central_columns']['route'] = '/database/central-columns';
@@ -471,21 +455,18 @@ class Menu
      *
      * @return array Data for generating server tabs
      */
-    private function getServerTabs()
+    private function getServerTabs(): array
     {
-        global $route, $dbi;
+        $route = Routing::getCurrentRoute();
 
-        $isSuperUser = $dbi->isSuperUser();
-        $isCreateOrGrantUser = $dbi->isGrantUser() || $dbi->isCreateUser();
+        $isSuperUser = $this->dbi->isSuperUser();
+        $isCreateOrGrantUser = $this->dbi->isGrantUser() || $this->dbi->isCreateUser();
         if (SessionCache::has('binary_logs')) {
             $binaryLogs = SessionCache::get('binary_logs');
         } else {
-            $binaryLogs = $dbi->fetchResult(
+            $binaryLogs = $this->dbi->fetchResult(
                 'SHOW MASTER LOGS',
-                'Log_name',
-                null,
-                DatabaseInterface::CONNECT_USER,
-                DatabaseInterface::QUERY_STORE
+                'Log_name'
             );
             SessionCache::set('binary_logs', $binaryLogs);
         }
@@ -593,7 +574,7 @@ class Menu
      *
      * @return Menu
      */
-    public function setTable($table)
+    public function setTable(string $table)
     {
         $this->table = $table;
 

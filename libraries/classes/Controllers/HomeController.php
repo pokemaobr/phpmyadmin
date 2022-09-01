@@ -5,17 +5,15 @@ declare(strict_types=1);
 namespace PhpMyAdmin\Controllers;
 
 use PhpMyAdmin\Charsets;
-use PhpMyAdmin\Charsets\Charset;
-use PhpMyAdmin\Charsets\Collation;
 use PhpMyAdmin\CheckUserPrivileges;
 use PhpMyAdmin\Config;
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Git;
 use PhpMyAdmin\Html\Generator;
 use PhpMyAdmin\LanguageManager;
 use PhpMyAdmin\Message;
 use PhpMyAdmin\RecentFavoriteTable;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Server\Select;
 use PhpMyAdmin\Template;
@@ -29,14 +27,12 @@ use function count;
 use function extension_loaded;
 use function file_exists;
 use function ini_get;
+use function mb_strlen;
 use function preg_match;
 use function sprintf;
-use function strlen;
-use function trigger_error;
 
-use const E_USER_NOTICE;
-use const E_USER_WARNING;
 use const PHP_VERSION;
+use const SODIUM_CRYPTO_SECRETBOX_KEYBYTES;
 
 class HomeController extends AbstractController
 {
@@ -48,6 +44,12 @@ class HomeController extends AbstractController
 
     /** @var DatabaseInterface */
     private $dbi;
+
+    /**
+     * @var array<int, array<string, string>>
+     * @psalm-var list<array{message: string, severity: 'warning'|'notice'}>
+     */
+    private $errors = [];
 
     public function __construct(
         ResponseRenderer $response,
@@ -64,7 +66,11 @@ class HomeController extends AbstractController
 
     public function __invoke(): void
     {
-        global $cfg, $server, $collation_connection, $message, $show_query, $db, $table, $errorUrl;
+        $GLOBALS['server'] = $GLOBALS['server'] ?? null;
+        $GLOBALS['collation_connection'] = $GLOBALS['collation_connection'] ?? null;
+        $GLOBALS['message'] = $GLOBALS['message'] ?? null;
+        $GLOBALS['show_query'] = $GLOBALS['show_query'] ?? null;
+        $GLOBALS['errorUrl'] = $GLOBALS['errorUrl'] ?? null;
 
         if ($this->response->isAjax() && ! empty($_REQUEST['access_time'])) {
             return;
@@ -75,20 +81,20 @@ class HomeController extends AbstractController
         // This is for $cfg['ShowDatabasesNavigationAsTree'] = false;
         // See: https://github.com/phpmyadmin/phpmyadmin/issues/16520
         // The DB is defined here and sent to the JS front-end to refresh the DB tree
-        $db = $_POST['db'] ?? '';
-        $table = '';
-        $show_query = '1';
-        $errorUrl = Url::getFromRoute('/');
+        $GLOBALS['db'] = $_POST['db'] ?? '';
+        $GLOBALS['table'] = '';
+        $GLOBALS['show_query'] = '1';
+        $GLOBALS['errorUrl'] = Url::getFromRoute('/');
 
-        if ($server > 0 && $this->dbi->isSuperUser()) {
+        if ($GLOBALS['server'] > 0 && $this->dbi->isSuperUser()) {
             $this->dbi->selectDb('mysql');
         }
 
         $languageManager = LanguageManager::getInstance();
 
-        if (! empty($message)) {
-            $displayMessage = Generator::getMessage($message);
-            unset($message);
+        if (! empty($GLOBALS['message'])) {
+            $displayMessage = Generator::getMessage($GLOBALS['message']);
+            unset($GLOBALS['message']);
         }
 
         if (isset($_SESSION['partial_logout'])) {
@@ -102,32 +108,30 @@ class HomeController extends AbstractController
         $syncFavoriteTables = RecentFavoriteTable::getInstance('favorite')
             ->getHtmlSyncFavoriteTables();
 
-        $hasServer = $server > 0 || count($cfg['Servers']) > 1;
+        $hasServer = $GLOBALS['server'] > 0 || count($GLOBALS['cfg']['Servers']) > 1;
         if ($hasServer) {
-            $hasServerSelection = $cfg['ServerDefault'] == 0
-                || (! $cfg['NavigationDisplayServers']
-                && (count($cfg['Servers']) > 1
-                || ($server == 0 && count($cfg['Servers']) === 1)));
+            $hasServerSelection = $GLOBALS['cfg']['ServerDefault'] == 0
+                || (! $GLOBALS['cfg']['NavigationDisplayServers']
+                && (count($GLOBALS['cfg']['Servers']) > 1
+                || ($GLOBALS['server'] == 0 && count($GLOBALS['cfg']['Servers']) === 1)));
             if ($hasServerSelection) {
                 $serverSelection = Select::render(true, true);
             }
 
-            if ($server > 0) {
+            if ($GLOBALS['server'] > 0) {
                 $checkUserPrivileges = new CheckUserPrivileges($this->dbi);
                 $checkUserPrivileges->getPrivileges();
 
-                $charsets = Charsets::getCharsets($this->dbi, $cfg['Server']['DisableIS']);
-                $collations = Charsets::getCollations($this->dbi, $cfg['Server']['DisableIS']);
+                $charsets = Charsets::getCharsets($this->dbi, $GLOBALS['cfg']['Server']['DisableIS']);
+                $collations = Charsets::getCollations($this->dbi, $GLOBALS['cfg']['Server']['DisableIS']);
                 $charsetsList = [];
-                /** @var Charset $charset */
                 foreach ($charsets as $charset) {
                     $collationsList = [];
-                    /** @var Collation $collation */
                     foreach ($collations[$charset->getName()] as $collation) {
                         $collationsList[] = [
                             'name' => $collation->getName(),
                             'description' => $collation->getDescription(),
-                            'is_selected' => $collation_connection === $collation->getName(),
+                            'is_selected' => $GLOBALS['collation_connection'] === $collation->getName(),
                         ];
                     }
 
@@ -141,29 +145,29 @@ class HomeController extends AbstractController
         }
 
         $availableLanguages = [];
-        if (empty($cfg['Lang']) && $languageManager->hasChoice()) {
+        if (empty($GLOBALS['cfg']['Lang']) && $languageManager->hasChoice()) {
             $availableLanguages = $languageManager->sortedLanguages();
         }
 
         $databaseServer = [];
-        if ($server > 0) {
+        if ($GLOBALS['server'] > 0) {
             $hostInfo = '';
-            if (! empty($cfg['Server']['verbose'])) {
-                $hostInfo .= $cfg['Server']['verbose'];
-                if ($cfg['ShowServerInfo']) {
+            if (! empty($GLOBALS['cfg']['Server']['verbose'])) {
+                $hostInfo .= $GLOBALS['cfg']['Server']['verbose'];
+                if ($GLOBALS['cfg']['ShowServerInfo']) {
                     $hostInfo .= ' (';
                 }
             }
 
-            if ($cfg['ShowServerInfo'] || empty($cfg['Server']['verbose'])) {
+            if ($GLOBALS['cfg']['ShowServerInfo'] || empty($GLOBALS['cfg']['Server']['verbose'])) {
                 $hostInfo .= $this->dbi->getHostInfo();
             }
 
-            if (! empty($cfg['Server']['verbose']) && $cfg['ShowServerInfo']) {
+            if (! empty($GLOBALS['cfg']['Server']['verbose']) && $GLOBALS['cfg']['ShowServerInfo']) {
                 $hostInfo .= ')';
             }
 
-            $serverCharset = Charsets::getServerCharset($this->dbi, $cfg['Server']['DisableIS']);
+            $serverCharset = Charsets::getServerCharset($this->dbi, $GLOBALS['cfg']['Server']['DisableIS']);
             $databaseServer = [
                 'host' => $hostInfo,
                 'type' => Util::getServerType(),
@@ -176,10 +180,10 @@ class HomeController extends AbstractController
         }
 
         $webServer = [];
-        if ($cfg['ShowServerInfo']) {
+        if ($GLOBALS['cfg']['ShowServerInfo']) {
             $webServer['software'] = $_SERVER['SERVER_SOFTWARE'] ?? null;
 
-            if ($server > 0) {
+            if ($GLOBALS['server'] > 0) {
                 $clientVersion = $this->dbi->getClientInfo();
                 if (preg_match('#\d+\.\d+\.\d+#', $clientVersion)) {
                     $clientVersion = 'libmysql - ' . $clientVersion;
@@ -192,15 +196,15 @@ class HomeController extends AbstractController
         }
 
         $relation = new Relation($this->dbi);
-        if ($server > 0) {
-            $cfgRelation = $relation->getRelationsParam();
-            if (! $cfgRelation['allworks'] && $cfg['PmaNoRelation_DisableWarning'] == false) {
+        if ($GLOBALS['server'] > 0) {
+            $relationParameters = $relation->getRelationParameters();
+            if (! $relationParameters->hasAllFeatures() && $GLOBALS['cfg']['PmaNoRelation_DisableWarning'] == false) {
                 $messageText = __(
                     'The phpMyAdmin configuration storage is not completely '
                     . 'configured, some extended features have been deactivated. '
                     . '%sFind out why%s. '
                 );
-                if ($cfg['ZeroConf'] == true) {
+                if ($GLOBALS['cfg']['ZeroConf'] == true) {
                     $messageText .= '<br>' .
                         __('Or alternately go to \'Operations\' tab of any database to set it up there.');
                 }
@@ -212,7 +216,7 @@ class HomeController extends AbstractController
                 );
                 $messageInstance->addParamHtml('</a>');
                 /* Show error if user has configured something, notice elsewhere */
-                if (! empty($cfg['Servers'][$server]['pmadb'])) {
+                if (! empty($GLOBALS['cfg']['Servers'][$GLOBALS['server']]['pmadb'])) {
                     $messageInstance->isError(true);
                 }
 
@@ -225,109 +229,118 @@ class HomeController extends AbstractController
         $git = new Git($this->config->get('ShowGitRevision') ?? true);
 
         $this->render('home/index', [
-            'db' => $db,
-            'table' => $table,
+            'db' => $GLOBALS['db'],
+            'table' => $GLOBALS['table'],
             'message' => $displayMessage ?? '',
             'partial_logout' => $partialLogout ?? '',
             'is_git_revision' => $git->isGitRevision(),
-            'server' => $server,
+            'server' => $GLOBALS['server'],
             'sync_favorite_tables' => $syncFavoriteTables,
             'has_server' => $hasServer,
-            'is_demo' => $cfg['DBG']['demo'],
+            'is_demo' => $GLOBALS['cfg']['DBG']['demo'],
             'has_server_selection' => $hasServerSelection ?? false,
             'server_selection' => $serverSelection ?? '',
-            'has_change_password_link' => $cfg['Server']['auth_type'] !== 'config' && $cfg['ShowChgPassword'],
+            'has_change_password_link' => $GLOBALS['cfg']['Server']['auth_type'] !== 'config'
+                && $GLOBALS['cfg']['ShowChgPassword'],
             'charsets' => $charsetsList ?? [],
             'available_languages' => $availableLanguages,
             'database_server' => $databaseServer,
             'web_server' => $webServer,
-            'show_php_info' => $cfg['ShowPhpInfo'],
-            'is_version_checked' => $cfg['VersionCheck'],
+            'show_php_info' => $GLOBALS['cfg']['ShowPhpInfo'],
+            'is_version_checked' => $GLOBALS['cfg']['VersionCheck'],
             'phpmyadmin_version' => Version::VERSION,
             'phpmyadmin_major_version' => Version::SERIES,
             'config_storage_message' => $configStorageMessage ?? '',
-            'has_theme_manager' => $cfg['ThemeManager'],
+            'has_theme_manager' => $GLOBALS['cfg']['ThemeManager'],
             'themes' => $this->themeManager->getThemesArray(),
+            'errors' => $this->errors,
         ]);
     }
 
     private function checkRequirements(): void
     {
-        global $cfg, $server;
+        $GLOBALS['server'] = $GLOBALS['server'] ?? null;
 
         $this->checkPhpExtensionsRequirements();
 
-        if ($cfg['LoginCookieValidityDisableWarning'] == false) {
+        if ($GLOBALS['cfg']['LoginCookieValidityDisableWarning'] == false) {
             /**
              * Check whether session.gc_maxlifetime limits session validity.
              */
             $gc_time = (int) ini_get('session.gc_maxlifetime');
-            if ($gc_time < $cfg['LoginCookieValidity']) {
-                trigger_error(
-                    __(
+            if ($gc_time < $GLOBALS['cfg']['LoginCookieValidity']) {
+                $this->errors[] = [
+                    'message' => __(
                         'Your PHP parameter [a@https://www.php.net/manual/en/session.' .
                         'configuration.php#ini.session.gc-maxlifetime@_blank]session.' .
                         'gc_maxlifetime[/a] is lower than cookie validity configured ' .
                         'in phpMyAdmin, because of this, your login might expire sooner ' .
                         'than configured in phpMyAdmin.'
                     ),
-                    E_USER_WARNING
-                );
+                    'severity' => 'warning',
+                ];
             }
         }
 
         /**
          * Check whether LoginCookieValidity is limited by LoginCookieStore.
          */
-        if ($cfg['LoginCookieStore'] != 0 && $cfg['LoginCookieStore'] < $cfg['LoginCookieValidity']) {
-            trigger_error(
-                __(
+        if (
+            $GLOBALS['cfg']['LoginCookieStore'] != 0
+            && $GLOBALS['cfg']['LoginCookieStore'] < $GLOBALS['cfg']['LoginCookieValidity']
+        ) {
+            $this->errors[] = [
+                'message' => __(
                     'Login cookie store is lower than cookie validity configured in ' .
                     'phpMyAdmin, because of this, your login will expire sooner than ' .
                     'configured in phpMyAdmin.'
                 ),
-                E_USER_WARNING
-            );
+                'severity' => 'warning',
+            ];
         }
 
         /**
          * Warning if using the default MySQL controluser account
          */
         if (
-            isset($cfg['Server']['controluser'], $cfg['Server']['controlpass'])
-            && $server != 0
-            && $cfg['Server']['controluser'] === 'pma'
-            && $cfg['Server']['controlpass'] === 'pmapass'
+            isset($GLOBALS['cfg']['Server']['controluser'], $GLOBALS['cfg']['Server']['controlpass'])
+            && $GLOBALS['server'] != 0
+            && $GLOBALS['cfg']['Server']['controluser'] === 'pma'
+            && $GLOBALS['cfg']['Server']['controlpass'] === 'pmapass'
         ) {
-            trigger_error(
-                __(
+            $this->errors[] = [
+                'message' => __(
                     'Your server is running with default values for the ' .
                     'controluser and password (controlpass) and is open to ' .
                     'intrusion; you really should fix this security weakness' .
                     ' by changing the password for controluser \'pma\'.'
                 ),
-                E_USER_WARNING
-            );
+                'severity' => 'warning',
+            ];
         }
 
         /**
          * Check if user does not have defined blowfish secret and it is being used.
          */
         if (! empty($_SESSION['encryption_key'])) {
-            if (empty($cfg['blowfish_secret'])) {
-                trigger_error(
-                    __(
+            if (empty($GLOBALS['cfg']['blowfish_secret'])) {
+                $this->errors[] = [
+                    'message' => __(
                         'The configuration file now needs a secret passphrase (blowfish_secret).'
                     ),
-                    E_USER_WARNING
-                );
-            } elseif (strlen($cfg['blowfish_secret']) < 32) {
-                trigger_error(
-                    __(
-                        'The secret passphrase in configuration (blowfish_secret) is too short.'
+                    'severity' => 'warning',
+                ];
+            } elseif (mb_strlen($GLOBALS['cfg']['blowfish_secret'], '8bit') !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) {
+                $this->errors[] = [
+                    'message' => sprintf(
+                        __(
+                            'The secret passphrase in configuration (blowfish_secret) is not the correct length.'
+                            . ' It should be %d bytes long.'
+                        ),
+                        SODIUM_CRYPTO_SECRETBOX_KEYBYTES
                     ),
-                    E_USER_WARNING
-                );
+                    'severity' => 'warning',
+                ];
             }
         }
 
@@ -336,42 +349,42 @@ class HomeController extends AbstractController
          * production environment.
          */
         if (@file_exists(ROOT_PATH . 'config')) {
-            trigger_error(
-                __(
+            $this->errors[] = [
+                'message' => __(
                     'Directory [code]config[/code], which is used by the setup script, ' .
                     'still exists in your phpMyAdmin directory. It is strongly ' .
                     'recommended to remove it once phpMyAdmin has been configured. ' .
                     'Otherwise the security of your server may be compromised by ' .
                     'unauthorized people downloading your configuration.'
                 ),
-                E_USER_WARNING
-            );
+                'severity' => 'warning',
+            ];
         }
 
         /**
          * Warning about Suhosin only if its simulation mode is not enabled
          */
         if (
-            $cfg['SuhosinDisableWarning'] == false
+            $GLOBALS['cfg']['SuhosinDisableWarning'] == false
             && ini_get('suhosin.request.max_value_length')
             && ini_get('suhosin.simulation') == '0'
         ) {
-            trigger_error(
-                sprintf(
+            $this->errors[] = [
+                'message' => sprintf(
                     __(
                         'Server running with Suhosin. Please refer to %sdocumentation%s for possible issues.'
                     ),
                     '[doc@faq1-38]',
                     '[/doc]'
                 ),
-                E_USER_WARNING
-            );
+                'severity' => 'warning',
+            ];
         }
 
         /* Missing template cache */
         if ($this->config->getTempDir('twig') === null) {
-            trigger_error(
-                sprintf(
+            $this->errors[] = [
+                'message' => sprintf(
                     __(
                         'The $cfg[\'TempDir\'] (%s) is not accessible. ' .
                         'phpMyAdmin is not able to cache templates and will ' .
@@ -379,8 +392,8 @@ class HomeController extends AbstractController
                     ),
                     $this->config->get('TempDir')
                 ),
-                E_USER_WARNING
-            );
+                'severity' => 'warning',
+            ];
         }
 
         $this->checkLanguageStats();
@@ -388,7 +401,7 @@ class HomeController extends AbstractController
 
     private function checkLanguageStats(): void
     {
-        global $cfg, $lang;
+        $GLOBALS['lang'] = $GLOBALS['lang'] ?? null;
 
         /**
          * Warning about incomplete translations.
@@ -407,18 +420,18 @@ class HomeController extends AbstractController
          * speaking users.
          */
         if (
-            ! isset($GLOBALS['language_stats'][$lang])
-            || $GLOBALS['language_stats'][$lang] >= $cfg['TranslationWarningThreshold']
+            ! isset($GLOBALS['language_stats'][$GLOBALS['lang']])
+            || $GLOBALS['language_stats'][$GLOBALS['lang']] >= $GLOBALS['cfg']['TranslationWarningThreshold']
         ) {
             return;
         }
 
-        trigger_error(
-            'You are using an incomplete translation, please help to make it '
-            . 'better by [a@https://www.phpmyadmin.net/translate/'
-            . '@_blank]contributing[/a].',
-            E_USER_NOTICE
-        );
+        $this->errors[] = [
+            'message' => 'You are using an incomplete translation, please help to make it '
+                . 'better by [a@https://www.phpmyadmin.net/translate/'
+                . '@_blank]contributing[/a].',
+            'severity' => 'notice',
+        ];
     }
 
     private function checkPhpExtensionsRequirements(): void
@@ -428,15 +441,15 @@ class HomeController extends AbstractController
          * to tell user something might be broken without it, see bug #1063149.
          */
         if (! extension_loaded('mbstring')) {
-            trigger_error(
-                __(
+            $this->errors[] = [
+                'message' => __(
                     'The mbstring PHP extension was not found and you seem to be using'
                     . ' a multibyte charset. Without the mbstring extension phpMyAdmin'
                     . ' is unable to split strings correctly and it may result in'
                     . ' unexpected results.'
                 ),
-                E_USER_WARNING
-            );
+                'severity' => 'warning',
+            ];
         }
 
         /**
@@ -446,12 +459,13 @@ class HomeController extends AbstractController
             return;
         }
 
-        trigger_error(
-            __(
+        $this->errors[] = [
+            'message' =>  __(
                 'The curl extension was not found and allow_url_fopen is '
                 . 'disabled. Due to this some features such as error reporting '
                 . 'or version check are disabled.'
-            )
-        );
+            ),
+            'severity' => 'notice',
+        ];
     }
 }

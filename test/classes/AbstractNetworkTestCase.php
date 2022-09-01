@@ -30,10 +30,8 @@ abstract class AbstractNetworkTestCase extends AbstractTestCase
      */
     public static function setUpBeforeClass(): void
     {
-        global $cfg;
-
         $settings = new Settings([]);
-        $cfg = $settings->toArray();
+        $GLOBALS['cfg'] = $settings->toArray();
     }
 
     /**
@@ -53,7 +51,7 @@ abstract class AbstractNetworkTestCase extends AbstractTestCase
                 'setRequestStatus',
                 'addJSON',
                 'addHTML',
-                'getFooter',
+                'setMinimalFooter',
                 'getHeader',
                 'httpResponseCode',
             ])

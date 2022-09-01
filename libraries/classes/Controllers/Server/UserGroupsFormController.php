@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace PhpMyAdmin\Controllers\Server;
 
 use PhpMyAdmin\CheckUserPrivileges;
+use PhpMyAdmin\ConfigStorage\Features\ConfigurableMenusFeature;
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\DatabaseInterface;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Util;
@@ -52,9 +53,8 @@ final class UserGroupsFormController extends AbstractController
         $checkUserPrivileges = new CheckUserPrivileges($this->dbi);
         $checkUserPrivileges->getPrivileges();
 
-        $cfgRelation = $this->relation->getRelationsParam();
-
-        if (! $cfgRelation['menuswork']) {
+        $configurableMenusFeature = $this->relation->getRelationParameters()->configurableMenusFeature;
+        if ($configurableMenusFeature === null) {
             $this->response->setRequestStatus(false);
             $this->response->setHttpResponseCode(400);
             $this->response->addJSON('message', __('User groups management is not enabled.'));
@@ -62,38 +62,38 @@ final class UserGroupsFormController extends AbstractController
             return;
         }
 
-        $form = $this->getHtmlToChooseUserGroup($username, $cfgRelation);
+        $form = $this->getHtmlToChooseUserGroup($username, $configurableMenusFeature);
 
         $this->response->addJSON('message', $form);
     }
 
     /**
      * Displays a dropdown to select the user group with menu items configured to each of them.
-     *
-     * @param array<string, mixed> $cfgRelation
      */
-    private function getHtmlToChooseUserGroup(string $username, array $cfgRelation): string
-    {
-        $groupTable = Util::backquote($cfgRelation['db']) . '.' . Util::backquote($cfgRelation['usergroups']);
-        $userTable = Util::backquote($cfgRelation['db']) . '.' . Util::backquote($cfgRelation['users']);
+    private function getHtmlToChooseUserGroup(
+        string $username,
+        ConfigurableMenusFeature $configurableMenusFeature
+    ): string {
+        $groupTable = Util::backquote($configurableMenusFeature->database)
+            . '.' . Util::backquote($configurableMenusFeature->userGroups);
+        $userTable = Util::backquote($configurableMenusFeature->database)
+            . '.' . Util::backquote($configurableMenusFeature->users);
 
         $sqlQuery = sprintf(
             'SELECT `usergroup` FROM %s WHERE `username` = \'%s\'',
             $userTable,
             $this->dbi->escapeString($username)
         );
-        $userGroup = $this->dbi->fetchValue($sqlQuery, 0, 0, DatabaseInterface::CONNECT_CONTROL);
+        $userGroup = $this->dbi->fetchValue($sqlQuery, 0, DatabaseInterface::CONNECT_CONTROL);
 
         $allUserGroups = [];
         $sqlQuery = 'SELECT DISTINCT `usergroup` FROM ' . $groupTable;
-        $result = $this->relation->queryAsControlUser($sqlQuery, false);
+        $result = $this->dbi->tryQueryAsControlUser($sqlQuery);
         if ($result) {
-            while ($row = $this->dbi->fetchRow($result)) {
+            while ($row = $result->fetchRow()) {
                 $allUserGroups[$row[0]] = $row[0];
             }
         }
-
-        $this->dbi->freeResult($result);
 
         return $this->template->render('server/privileges/choose_user_group', [
             'all_user_groups' => $allUserGroups,

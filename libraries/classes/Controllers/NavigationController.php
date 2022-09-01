@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace PhpMyAdmin\Controllers;
 
 use PhpMyAdmin\Config\PageSettings;
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Message;
 use PhpMyAdmin\Navigation\Navigation;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Utils\SessionCache;
@@ -62,8 +62,8 @@ class NavigationController extends AbstractController
             SessionCache::set('dbs_to_test', false);// Empty database list cache, see #14252
         }
 
-        $cfgRelation = $this->relation->getRelationsParam();
-        if ($cfgRelation['navwork']) {
+        $relationParameters = $this->relation->getRelationParameters();
+        if ($relationParameters->navigationItemsHidingFeature !== null) {
             if (isset($_POST['hideNavItem'])) {
                 if (! empty($_POST['itemName']) && ! empty($_POST['itemType']) && ! empty($_POST['dbName'])) {
                     $this->navigation->hideNavigationItem(

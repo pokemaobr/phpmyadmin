@@ -2,8 +2,6 @@
  * Functions used in configuration forms and on user preferences pages
  */
 
-/* exported PASSIVE_EVENT_LISTENERS */
-
 var configInlineParams;
 var configScriptLoaded;
 
@@ -667,7 +665,7 @@ function setupRestoreField () {
             var fieldSel;
             if ($(this).hasClass('restore-default')) {
                 fieldSel = href;
-                restoreField(fieldSel.substr(1));
+                restoreField(fieldSel.substring(1));
             } else {
                 fieldSel = href.match(/^[^=]+/)[0];
                 var value = href.match(/=(.+)$/)[1];
@@ -841,23 +839,3 @@ function offerPrefsAutoimport () {
     });
     $cnt.show();
 }
-
-/**
- * @type {boolean} Support for passive event listener option
- */
-var PASSIVE_EVENT_LISTENERS = (function () {
-    var passive = false;
-    try {
-        var options = Object.defineProperty({}, 'passive', {
-            get: function () {
-                return (passive = true);
-            },
-        });
-
-        window.addEventListener('_', null, options);
-        window.removeEventListener('_', null, options);
-    } catch (error) {
-        // passive not supported
-    }
-    return passive;
-}());

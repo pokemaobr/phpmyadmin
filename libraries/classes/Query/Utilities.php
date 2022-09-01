@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Query;
 
+use PhpMyAdmin\Dbal\ResultInterface;
 use PhpMyAdmin\Error;
 use PhpMyAdmin\Url;
 
@@ -80,6 +81,7 @@ class Utilities
      * @param string $error_message Error message as returned by server
      *
      * @return string HML text with error details
+     * @psalm-return non-empty-string
      */
     public static function formatError(int $error_number, string $error_message): string
     {
@@ -134,8 +136,6 @@ class Utilities
      */
     public static function usortComparisonCallback(array $a, array $b, string $sortBy, string $sortOrder): int
     {
-        global $cfg;
-
         /* No sorting when key is not present */
         if (! isset($a[$sortBy], $b[$sortBy])) {
             return 0;
@@ -143,9 +143,13 @@ class Utilities
 
         // produces f.e.:
         // return -1 * strnatcasecmp($a['SCHEMA_TABLES'], $b['SCHEMA_TABLES'])
-        $compare = $cfg['NaturalOrder']
-            ? strnatcasecmp($a[$sortBy], $b[$sortBy])
-            : strcasecmp($a[$sortBy], $b[$sortBy]);
+        $compare = $GLOBALS['cfg']['NaturalOrder'] ? strnatcasecmp(
+            (string) $a[$sortBy],
+            (string) $b[$sortBy]
+        ) : strcasecmp(
+            (string) $a[$sortBy],
+            (string) $b[$sortBy]
+        );
 
         return ($sortOrder === 'ASC' ? 1 : -1) * $compare;
     }
@@ -165,10 +169,10 @@ class Utilities
     /**
      * Stores query data into session data for debugging purposes
      *
-     * @param string      $query        Query text
-     * @param string|null $errorMessage Error message from getError()
-     * @param object|bool $result       Query result
-     * @param int|float   $time         Time to execute query
+     * @param string                $query        Query text
+     * @param string|null           $errorMessage Error message from getError()
+     * @param ResultInterface|false $result       Query result
+     * @param int|float             $time         Time to execute query
      */
     public static function debugLogQueryIntoSession(string $query, ?string $errorMessage, $result, $time): void
     {

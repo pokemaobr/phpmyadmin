@@ -7,19 +7,20 @@ namespace PhpMyAdmin\Tests\Server;
 use mysqli_result;
 use mysqli_stmt;
 use PhpMyAdmin\Config;
+use PhpMyAdmin\ConfigStorage\Relation;
+use PhpMyAdmin\ConfigStorage\RelationCleanup;
+use PhpMyAdmin\ConfigStorage\RelationParameters;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Html\Generator;
 use PhpMyAdmin\Message;
-use PhpMyAdmin\Relation;
-use PhpMyAdmin\RelationCleanup;
 use PhpMyAdmin\Server\Plugins;
 use PhpMyAdmin\Server\Privileges;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Tests\AbstractTestCase;
 use PhpMyAdmin\Tests\Stubs\DbiDummy;
+use PhpMyAdmin\Tests\Stubs\DummyResult;
 use PhpMyAdmin\Url;
 use PhpMyAdmin\Util;
-use PhpMyAdmin\Version;
 use ReflectionMethod;
 use stdClass;
 
@@ -46,8 +47,6 @@ class PrivilegesTest extends AbstractTestCase
         parent::setGlobalConfig();
         parent::setTheme();
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
-        $GLOBALS['cfgRelation'] = [];
-        $GLOBALS['cfgRelation']['menuswork'] = false;
         $GLOBALS['table'] = 'table';
         $GLOBALS['server'] = 1;
         $GLOBALS['db'] = 'db';
@@ -63,18 +62,17 @@ class PrivilegesTest extends AbstractTestCase
             new Plugins($GLOBALS['dbi'])
         );
 
-        //$_POST
         $_POST['pred_password'] = 'none';
-        //$_SESSION
-        $_SESSION['relation'][$GLOBALS['server']] = [
-            'version' => Version::VERSION,
+
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'db' => 'pmadb',
             'users' => 'users',
             'usergroups' => 'usergroups',
             'menuswork' => true,
             'trackingwork' => true,
             'tracking' => 'tracking',
-        ];
+        ])->toArray();
 
         $pmaconfig = $this->getMockBuilder(Config::class)
             ->disableOriginalConstructor()
@@ -111,8 +109,10 @@ class PrivilegesTest extends AbstractTestCase
         $dbi->expects($this->any())->method('fetchValue')
             ->will($this->returnValue($fetchValue));
 
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi->expects($this->any())->method('tryQuery')
-            ->will($this->returnValue(true));
+            ->will($this->returnValue($resultStub));
 
         $dbi->expects($this->any())->method('escapeString')
             ->will($this->returnArgument(0));
@@ -181,6 +181,34 @@ class PrivilegesTest extends AbstractTestCase
         $this->assertEquals('PMA\_pred\_dbname', $dbname);
         $this->assertEquals('PMA_pred__tablename', $tablename);
         $this->assertEquals('`PMA_pred_dbname`.`PMA_pred__tablename`', $db_and_table);
+        $this->assertEquals(false, $dbname_is_wildcard);
+
+        // Multiselect database - pred
+        unset($_POST['pred_tablename'], $_REQUEST['tablename'], $_REQUEST['dbname']);
+        $_POST['pred_dbname'] = ['PMA\_pred\_dbname', 'PMADbname2'];
+        [,,
+            $dbname,
+            $tablename,,
+            $db_and_table,
+            $dbname_is_wildcard,
+        ] = $this->serverPrivileges->getDataForDBInfo();
+        $this->assertEquals(['PMA\_pred\_dbname', 'PMADbname2'], $dbname);
+        $this->assertEquals(null, $tablename);
+        $this->assertEquals(['PMA\_pred\_dbname.*', 'PMADbname2.*'], $db_and_table);
+        $this->assertEquals(false, $dbname_is_wildcard);
+
+        // Multiselect database
+        unset($_POST['pred_tablename'], $_REQUEST['tablename'], $_POST['pred_dbname']);
+        $_REQUEST['dbname'] = ['PMA\_dbname', 'PMADbname2'];
+        [,,
+            $dbname,
+            $tablename,,
+            $db_and_table,
+            $dbname_is_wildcard,
+        ] = $this->serverPrivileges->getDataForDBInfo();
+        $this->assertEquals(['PMA\_dbname', 'PMADbname2'], $dbname);
+        $this->assertEquals(null, $tablename);
+        $this->assertEquals(['PMA\_dbname.*', 'PMADbname2.*'], $db_and_table);
         $this->assertEquals(false, $dbname_is_wildcard);
     }
 
@@ -1250,7 +1278,6 @@ class PrivilegesTest extends AbstractTestCase
     public function testGetUserGroupForUser(): void
     {
         $username = 'pma_username';
-        $GLOBALS['cfgRelation']['menuswork'] = true;
 
         $dbi_old = $GLOBALS['dbi'];
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
@@ -1280,12 +1307,11 @@ class PrivilegesTest extends AbstractTestCase
      */
     public function testGetUsersOverview(): void
     {
-        $result = [];
+        $resultStub = $this->createMock(DummyResult::class);
         $db_rights = [];
         $text_dir = 'text_dir';
-        $GLOBALS['cfgRelation']['menuswork'] = true;
 
-        $html = $this->serverPrivileges->getUsersOverview($result, $db_rights, $text_dir);
+        $html = $this->serverPrivileges->getUsersOverview($resultStub, $db_rights, $text_dir);
 
         //Url::getHiddenInputs
         $this->assertStringContainsString(
@@ -1368,19 +1394,8 @@ class PrivilegesTest extends AbstractTestCase
         $_POST['change_copy'] = 'change_copy';
         $_POST['old_hostname'] = 'old_hostname';
         $_POST['old_username'] = 'old_username';
-        $_SESSION['relation'][1] = [
-            'version' => Version::VERSION,
-            'bookmarkwork' => false,
-            'historywork' => false,
-            'recentwork' => false,
-            'favoritework' => false,
-            'uiprefswork' => false,
-            'userconfigwork' => false,
-            'menuswork' => false,
-            'navwork' => false,
-            'savedsearcheswork' => false,
-            'designersettingswork' => false,
-        ];
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([])->toArray();
 
         $queries = [];
 
@@ -1426,6 +1441,8 @@ class PrivilegesTest extends AbstractTestCase
         $hostname = 'hostname';
         $tablename = 'tablename';
         $_REQUEST['tablename'] = 'tablename';
+
+        // $this->serverPrivileges->dbi->expects($this->once())->method('tryQuery')->with
 
         $html = $this->serverPrivileges->getHtmlForUserProperties(
             $dbname_is_wildcard,
@@ -1654,9 +1671,19 @@ class PrivilegesTest extends AbstractTestCase
     public function testGetHtmlForInitials(): void
     {
         // Setup for the test
-        $GLOBALS['dbi']->expects($this->any())->method('fetchRow')
-            ->will($this->onConsecutiveCalls(['-']));
-        $this->serverPrivileges->dbi = $GLOBALS['dbi'];
+        $dbi = $this->getMockBuilder(DatabaseInterface::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $resultStub = $this->createMock(DummyResult::class);
+
+        $dbi->expects($this->once())
+            ->method('tryQuery')
+            ->will($this->returnValue($resultStub));
+        $resultStub->expects($this->atLeastOnce())
+            ->method('fetchRow')
+            ->will($this->onConsecutiveCalls(['-'], []));
+        $this->serverPrivileges->dbi = $dbi;
+
         $actual = $this->serverPrivileges->getHtmlForInitials(['"' => true]);
         $this->assertStringContainsString(
             '<a class="page-link" href="#" tabindex="-1" aria-disabled="true">A</a>',
@@ -1682,21 +1709,27 @@ class PrivilegesTest extends AbstractTestCase
      */
     public function testGetDbRightsForUserOverview(): void
     {
+        $resultStub = $this->createMock(DummyResult::class);
+
         //Mock DBI
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
         $dbi->expects($this->any())
+            ->method('query')
+            ->will($this->returnValue($resultStub));
+        $dbi->expects($this->any())
             ->method('fetchResult')
             ->will($this->returnValue(['db', 'columns_priv']));
-        $dbi->expects($this->any())
+        $resultStub->expects($this->any())
             ->method('fetchAssoc')
             ->will(
                 $this->onConsecutiveCalls(
                     [
                         'User' => 'pmauser',
                         'Host' => 'local',
-                    ]
+                    ],
+                    []
                 )
             );
         $dbi->expects($this->any())
@@ -1727,13 +1760,15 @@ class PrivilegesTest extends AbstractTestCase
      */
     public function testDeleteUser(): void
     {
+        $resultStub = $this->createMock(DummyResult::class);
+
         //Mock DBI
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
         $dbi->expects($this->any())
             ->method('tryQuery')
-            ->will($this->onConsecutiveCalls(true, true, false));
+            ->will($this->onConsecutiveCalls($resultStub, $resultStub, false));
         $dbi->expects($this->any())
             ->method('getError')
             ->will($this->returnValue('Some error occurred!'));
@@ -1782,11 +1817,9 @@ class PrivilegesTest extends AbstractTestCase
 
     public function testGetFormForChangePassword(): void
     {
-        global $route;
-
         $username = 'pma_username';
         $hostname = 'pma_hostname';
-        $route = '/server/privileges';
+        $_GET['route'] = '/server/privileges';
 
         $html = $this->serverPrivileges->getFormForChangePassword($username, $hostname, false);
 
@@ -1832,12 +1865,13 @@ class PrivilegesTest extends AbstractTestCase
 
     public function testGetUserPrivileges(): void
     {
+        $mysqliResultStub = $this->createMock(mysqli_result::class);
         $mysqliStmtStub = $this->createMock(mysqli_stmt::class);
         $mysqliStmtStub->expects($this->exactly(2))->method('bind_param')->willReturn(true);
         $mysqliStmtStub->expects($this->exactly(2))->method('execute')->willReturn(true);
         $mysqliStmtStub->expects($this->exactly(2))
             ->method('get_result')
-            ->willReturn($this->createStub(mysqli_result::class));
+            ->willReturn($mysqliResultStub);
 
         $dbi = $this->createMock(DatabaseInterface::class);
         $dbi->expects($this->once())->method('isMariaDB')->willReturn(true);
@@ -1848,8 +1882,8 @@ class PrivilegesTest extends AbstractTestCase
                 [$this->equalTo('SELECT * FROM `mysql`.`global_priv` WHERE `User` = ? AND `Host` = ?;')]
             )
             ->willReturn($mysqliStmtStub);
-        $dbi->expects($this->exactly(2))
-            ->method('fetchAssoc')
+        $mysqliResultStub->expects($this->exactly(2))
+            ->method('fetch_assoc')
             ->willReturnOnConsecutiveCalls(
                 ['Host' => 'test.host', 'User' => 'test.user'],
                 ['Host' => 'test.host', 'User' => 'test.user', 'Priv' => '{"account_locked":true}']

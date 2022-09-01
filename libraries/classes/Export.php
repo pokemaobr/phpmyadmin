@@ -31,7 +31,6 @@ use function ini_get;
 use function is_array;
 use function is_file;
 use function is_numeric;
-use function is_object;
 use function is_string;
 use function is_writable;
 use function mb_strlen;
@@ -111,14 +110,11 @@ class Export
          * and gz compression was not asked via $cfg['OBGzip']
          * but transparent compression does not apply when saving to server
          */
-        $chromeAndGreaterThan43 = $GLOBALS['config']->get('PMA_USR_BROWSER_AGENT') == 'CHROME'
-            && $GLOBALS['config']->get('PMA_USR_BROWSER_VER') >= 43; // see bug #4942
-
         return function_exists('gzencode')
             && ((! ini_get('zlib.output_compression')
                     && ! $this->isGzHandlerEnabled())
                 || $GLOBALS['save_on_server']
-                || $chromeAndGreaterThan43);
+                || $GLOBALS['config']->get('PMA_USR_BROWSER_AGENT') === 'CHROME');
     }
 
     /**
@@ -129,7 +125,8 @@ class Export
      */
     public function outputHandler(?string $line): bool
     {
-        global $time_start, $save_filename;
+        $GLOBALS['time_start'] = $GLOBALS['time_start'] ?? null;
+        $GLOBALS['save_filename'] = $GLOBALS['save_filename'] ?? null;
 
         // Kanji encoding convert feature
         if ($GLOBALS['output_kanji_conversion']) {
@@ -161,7 +158,7 @@ class Export
                             $GLOBALS['message'] = Message::error(
                                 __('Insufficient space to save the file %s.')
                             );
-                            $GLOBALS['message']->addParam($save_filename);
+                            $GLOBALS['message']->addParam($GLOBALS['save_filename']);
 
                             return false;
                         }
@@ -174,8 +171,8 @@ class Export
                 }
             } else {
                 $timeNow = time();
-                if ($time_start >= $timeNow + 30) {
-                    $time_start = $timeNow;
+                if ($GLOBALS['time_start'] >= $timeNow + 30) {
+                    $GLOBALS['time_start'] = $timeNow;
                     header('X-pmaPing: Pong');
                 }
             }
@@ -197,14 +194,14 @@ class Export
                     $GLOBALS['message'] = Message::error(
                         __('Insufficient space to save the file %s.')
                     );
-                    $GLOBALS['message']->addParam($save_filename);
+                    $GLOBALS['message']->addParam($GLOBALS['save_filename']);
 
                     return false;
                 }
 
                 $timeNow = time();
-                if ($time_start >= $timeNow + 30) {
-                    $time_start = $timeNow;
+                if ($GLOBALS['time_start'] >= $timeNow + 30) {
+                    $GLOBALS['time_start'] = $timeNow;
                     header('X-pmaPing: Pong');
                 }
             } else {
@@ -549,18 +546,20 @@ class Export
          * Displays a back button with all the $_POST data in the URL
          * (store in a variable to also display after the textarea)
          */
-        $backButton = '<p id="export_back_button">[ <a href="';
+        $backButton = '<p>[ <a href="';
         if ($exportType === 'server') {
-            $backButton .= Url::getFromRoute('/server/export') . '" data-post="' . Url::getCommon([], '');
+            $backButton .= Url::getFromRoute('/server/export') . '" data-post="' . Url::getCommon([], '', false);
         } elseif ($exportType === 'database') {
-            $backButton .= Url::getFromRoute('/database/export') . '" data-post="' . Url::getCommon(['db' => $db], '');
+            $backButton .= Url::getFromRoute('/database/export') . '" data-post="' . Url::getCommon(
+                ['db' => $db],
+                '',
+                false
+            );
         } else {
             $backButton .= Url::getFromRoute('/table/export') . '" data-post="' . Url::getCommon(
-                [
-                    'db' => $db,
-                    'table' => $table,
-                ],
-                ''
+                ['db' => $db, 'table' => $table],
+                '',
+                false
             );
         }
 
@@ -1155,29 +1154,30 @@ class Export
      */
     public function showPage(string $exportType): void
     {
-        global $active_page, $containerBuilder;
+        $GLOBALS['active_page'] = $GLOBALS['active_page'] ?? null;
+        $GLOBALS['containerBuilder'] = $GLOBALS['containerBuilder'] ?? null;
 
         if ($exportType === 'server') {
-            $active_page = Url::getFromRoute('/server/export');
+            $GLOBALS['active_page'] = Url::getFromRoute('/server/export');
             /** @var ServerExportController $controller */
-            $controller = $containerBuilder->get(ServerExportController::class);
+            $controller = $GLOBALS['containerBuilder']->get(ServerExportController::class);
             $controller();
 
             return;
         }
 
         if ($exportType === 'database') {
-            $active_page = Url::getFromRoute('/database/export');
+            $GLOBALS['active_page'] = Url::getFromRoute('/database/export');
             /** @var DatabaseExportController $controller */
-            $controller = $containerBuilder->get(DatabaseExportController::class);
+            $controller = $GLOBALS['containerBuilder']->get(DatabaseExportController::class);
             $controller();
 
             return;
         }
 
-        $active_page = Url::getFromRoute('/table/export');
+        $GLOBALS['active_page'] = Url::getFromRoute('/table/export');
         /** @var TableExportController $controller */
-        $controller = $containerBuilder->get(TableExportController::class);
+        $controller = $GLOBALS['containerBuilder']->get(TableExportController::class);
         $controller();
     }
 
@@ -1332,7 +1332,7 @@ class Export
         $exportPlugin = Plugins::getPlugin('schema', $exportType);
 
         // Check schema export type
-        if ($exportPlugin === null || ! is_object($exportPlugin)) {
+        if ($exportPlugin === null) {
             Core::fatalError(__('Bad type!'));
         }
 

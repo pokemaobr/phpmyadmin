@@ -35,11 +35,12 @@ class CreateTest extends TestBase
         $this->waitAjax();
         $this->waitAjax();
 
-        $this->waitForElement('id', 'create_table_form_minimal');
-        $this->byCssSelector('form#create_table_form_minimal input[name=table]')->sendKeys('test_table');
-        $this->byName('num_fields')->clear();
-        $this->byName('num_fields')->sendKeys('4');
-        $this->byCssSelector('input[value=Go]')->click();
+        $this->waitForElement('id', 'createTableMinimalForm');
+        $this->byId('createTableNameInput')->sendKeys('test_table');
+        $numFieldsInput = $this->byId('createTableNumFieldsInput');
+        $numFieldsInput->clear();
+        $numFieldsInput->sendKeys('4');
+        $this->byCssSelector('#createTableMinimalForm input[value=Create]')->click();
 
         $this->waitAjax();
         $this->waitForElement('name', 'do_save_data');
@@ -64,7 +65,7 @@ class CreateTest extends TestBase
         $column_dropdown_details = [
             'field_0_6' => 'UNSIGNED',
             'field_1_2' => 'VARCHAR',
-            'field_1_5' => 'utf8_general_ci',
+            'field_1_5' => 'utf8mb4_general_ci',
             'field_1_4' => 'As defined:',
         ];
 
@@ -82,7 +83,7 @@ class CreateTest extends TestBase
         $this->moveto($ele);
         // post
         $ele->click();
-        $this->waitForElement('cssSelector', 'li.last.table');
+        $this->waitForElement('cssSelector', 'li.last.nav_node_table');
 
         $this->waitAjax();
 
@@ -161,7 +162,7 @@ class CreateTest extends TestBase
         );
 
         $this->assertEquals(
-            'utf8_general_ci',
+            'utf8mb4_general_ci',
             $this->getCellByTableId('tablestructure', 2, 5)
         );
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Plugins\Export;
 
+use PhpMyAdmin\ConfigStorage\Relation;
+use PhpMyAdmin\ConfigStorage\RelationParameters;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\FieldMetadata;
 use PhpMyAdmin\Plugins\Export\ExportSql;
@@ -16,10 +18,9 @@ use PhpMyAdmin\Properties\Options\Items\RadioPropertyItem;
 use PhpMyAdmin\Properties\Options\Items\SelectPropertyItem;
 use PhpMyAdmin\Properties\Options\Items\TextPropertyItem;
 use PhpMyAdmin\Properties\Plugins\ExportPluginProperties;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\Table;
 use PhpMyAdmin\Tests\AbstractTestCase;
-use PhpMyAdmin\Version;
+use PhpMyAdmin\Tests\Stubs\DummyResult;
 use ReflectionMethod;
 use stdClass;
 
@@ -64,7 +65,11 @@ class ExportSqlTest extends AbstractTestCase
         $GLOBALS['plugin_param'] = [];
         $GLOBALS['plugin_param']['export_type'] = 'table';
         $GLOBALS['plugin_param']['single_table'] = false;
-        $GLOBALS['cfgRelation']['relation'] = true;
+        $GLOBALS['sql_constraints'] = null;
+        $GLOBALS['sql_backquotes'] = null;
+        $GLOBALS['sql_indexes'] = null;
+        $GLOBALS['sql_auto_increments'] = null;
+
         $this->object = new ExportSql();
     }
 
@@ -85,7 +90,6 @@ class ExportSqlTest extends AbstractTestCase
         // test with hide structure and hide sql as true
         $GLOBALS['plugin_param']['export_type'] = 'table';
         $GLOBALS['plugin_param']['single_table'] = false;
-        $GLOBALS['cfgRelation']['mimework'] = true;
 
         $method = new ReflectionMethod(ExportSql::class, 'setProperties');
         $method->setAccessible(true);
@@ -116,8 +120,15 @@ class ExportSqlTest extends AbstractTestCase
         $GLOBALS['dbi'] = $dbi;
         $GLOBALS['plugin_param']['export_type'] = 'server';
         $GLOBALS['plugin_param']['single_table'] = false;
-        $GLOBALS['cfgRelation']['mimework'] = true;
-        $GLOBALS['cfgRelation']['relation'] = true;
+
+        $relationParameters = RelationParameters::fromArray([
+            'db' => 'db',
+            'relation' => 'relation',
+            'column_info' => 'column_info',
+            'relwork' => true,
+            'mimework' => true,
+        ]);
+        $_SESSION = ['relation' => [$GLOBALS['server'] => $relationParameters->toArray()]];
 
         $method = new ReflectionMethod(ExportSql::class, 'setProperties');
         $method->setAccessible(true);
@@ -275,10 +286,10 @@ class ExportSqlTest extends AbstractTestCase
 
         $this->expectOutputString(
             '##DELIMITER $$##DROP PROCEDURE IF EXISTS `test_proc1`$$##CREATE PROCEDURE'
-                . ' `test_proc1` (`p` INT)  BEGIN END$$####DROP PROCEDURE IF EXISTS'
-                . ' `test_proc2`$$##CREATE PROCEDURE `test_proc2` (`p` INT)  BEGIN END$$####DROP'
+                . ' `test_proc1` (`p` INT)   BEGIN END$$####DROP PROCEDURE IF EXISTS'
+                . ' `test_proc2`$$##CREATE PROCEDURE `test_proc2` (`p` INT)   BEGIN END$$####DROP'
                 . ' FUNCTION IF EXISTS `test_func`$$##CREATE FUNCTION'
-                . ' `test_func` (`p` INT) RETURNS INT(11) BEGIN END$$####DELIMITER ;##'
+                . ' `test_func` (`p` INT) RETURNS INT(11)  BEGIN END$$####DELIMITER ;##'
         );
 
         $this->object->exportRoutines('test_db');
@@ -729,12 +740,12 @@ class ExportSqlTest extends AbstractTestCase
             );
         $GLOBALS['dbi'] = $dbi;
 
-        $result = $method->invoke($this->object, 'db', 'view', "\n", false);
+        $result = $method->invoke($this->object, 'db', 'view', "\n");
 
         $this->assertEquals(
             "CREATE TABLE IF NOT EXISTS `view`(\n" .
             "    `fname` char COLLATE utf-8 DEFAULT NULL COMMENT 'cmt'\n" .
-            ")\n",
+            ");\n",
             $result
         );
     }
@@ -759,20 +770,21 @@ class ExportSqlTest extends AbstractTestCase
             unset($GLOBALS['no_constraints_comments']);
         }
 
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
         $dbi->expects($this->any())
             ->method('query')
-            ->will($this->returnValue('res'));
+            ->will($this->returnValue($resultStub));
 
         $dbi->expects($this->never())
             ->method('fetchSingleRow');
 
-        $dbi->expects($this->once())
+        $resultStub->expects($this->once())
             ->method('numRows')
-            ->with('res')
             ->will($this->returnValue(1));
 
         $dbi->expects($this->any())
@@ -786,9 +798,8 @@ class ExportSqlTest extends AbstractTestCase
             'Check_time' => '2000-01-02 13:00:00',
         ];
 
-        $dbi->expects($this->once())
+        $resultStub->expects($this->once())
             ->method('fetchAssoc')
-            ->with('res')
             ->will($this->returnValue($tmpres));
 
         $dbi->expects($this->exactly(3))
@@ -798,7 +809,7 @@ class ExportSqlTest extends AbstractTestCase
                 ['USE `db`'],
                 ['SHOW CREATE TABLE `db`.`table`']
             )
-            ->willReturnOnConsecutiveCalls('res', 'res', 'res');
+            ->willReturnOnConsecutiveCalls($resultStub, $resultStub, $resultStub);
 
         $row = [
             '',
@@ -823,18 +834,10 @@ class ExportSqlTest extends AbstractTestCase
             ") ENGINE=InnoDB AUTO_INCREMENT=16050 DEFAULT CHARSET=utf8\n",
         ];
 
-        $dbi->expects($this->exactly(1))
+        $resultStub->expects($this->exactly(1))
             ->method('fetchRow')
-            ->will(
-                $this->returnValueMap(
-                    [
-                        [
-                            'res',
-                            $row,
-                        ],
-                    ]
-                )
-            );
+            ->will($this->returnValue($row));
+
         $dbi->expects($this->exactly(2))
             ->method('getTable')
             ->will($this->returnValue(new Table('table', 'db', $dbi)));
@@ -891,20 +894,21 @@ class ExportSqlTest extends AbstractTestCase
             unset($GLOBALS['no_constraints_comments']);
         }
 
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
             ->disableOriginalConstructor()
             ->getMock();
 
         $dbi->expects($this->any())
             ->method('query')
-            ->will($this->returnValue('res'));
+            ->will($this->returnValue($resultStub));
 
         $dbi->expects($this->never())
             ->method('fetchSingleRow');
 
-        $dbi->expects($this->once())
+        $resultStub->expects($this->once())
             ->method('numRows')
-            ->with('res')
             ->will($this->returnValue(2));
 
         $dbi->expects($this->any())
@@ -918,9 +922,8 @@ class ExportSqlTest extends AbstractTestCase
             'Check_time' => '2000-01-02 13:00:00',
         ];
 
-        $dbi->expects($this->once())
+        $resultStub->expects($this->once())
             ->method('fetchAssoc')
-            ->with('res')
             ->will($this->returnValue($tmpres));
 
         $dbi->expects($this->exactly(3))
@@ -930,7 +933,7 @@ class ExportSqlTest extends AbstractTestCase
                 ['USE `db`'],
                 ['SHOW CREATE TABLE `db`.`table`']
             )
-            ->willReturnOnConsecutiveCalls('res', 'res', 'res');
+            ->willReturnOnConsecutiveCalls($resultStub, $resultStub, $resultStub);
 
         $dbi->expects($this->once())
             ->method('getError')
@@ -953,15 +956,15 @@ class ExportSqlTest extends AbstractTestCase
 
     public function testGetTableComments(): void
     {
-        $_SESSION['relation'][0] = [
-            'version' => Version::VERSION,
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'relwork' => true,
             'commwork' => true,
             'mimework' => true,
             'db' => 'database',
             'relation' => 'rel',
             'column_info' => 'col',
-        ];
+        ])->toArray();
         $GLOBALS['sql_include_comments'] = true;
         $GLOBALS['crlf'] = "\n";
 
@@ -995,7 +998,7 @@ class ExportSqlTest extends AbstractTestCase
 
         $method = new ReflectionMethod(ExportSql::class, 'getTableComments');
         $method->setAccessible(true);
-        $result = $method->invoke($this->object, 'db', '', "\n", true, true);
+        $result = $method->invoke($this->object, 'db', '', true, true);
 
         $this->assertStringContainsString(
             "-- MEDIA TYPES FOR TABLE :\n" .
@@ -1072,6 +1075,7 @@ class ExportSqlTest extends AbstractTestCase
 
         // case 3
         $GLOBALS['sql_views_as_tables'] = false;
+        $GLOBALS['sql_backquotes'] = null;
 
         ob_start();
         $this->assertTrue(
@@ -1170,22 +1174,23 @@ class ExportSqlTest extends AbstractTestCase
         $a->charsetnr = 63;
         $flags[] = new FieldMetadata(MYSQLI_TYPE_BLOB, 0, $a);
 
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi->expects($this->once())
             ->method('getFieldsMeta')
-            ->with('res')
+            ->with($resultStub)
             ->will($this->returnValue($flags));
 
         $dbi->expects($this->once())
             ->method('tryQuery')
             ->with('SELECT a FROM b WHERE 1', DatabaseInterface::CONNECT_USER, DatabaseInterface::QUERY_UNBUFFERED)
-            ->will($this->returnValue('res'));
+            ->will($this->returnValue($resultStub));
 
-        $dbi->expects($this->once())
+        $resultStub->expects($this->once())
             ->method('numFields')
-            ->with('res')
             ->will($this->returnValue(5));
 
-        $dbi->expects($this->exactly(2))
+        $resultStub->expects($this->exactly(2))
             ->method('fetchRow')
             ->willReturnOnConsecutiveCalls(
                 [
@@ -1195,7 +1200,7 @@ class ExportSqlTest extends AbstractTestCase
                     '6',
                     "\x00\x0a\x0d\x1a",
                 ],
-                null
+                []
             );
         $dbi->expects($this->any())->method('escapeString')
             ->will($this->returnArgument(0));
@@ -1275,29 +1280,30 @@ class ExportSqlTest extends AbstractTestCase
         $a->length = 2;
         $flags[] = new FieldMetadata(MYSQLI_TYPE_FLOAT, MYSQLI_UNIQUE_KEY_FLAG, $a);
 
+        $resultStub = $this->createMock(DummyResult::class);
+
         $dbi->expects($this->once())
             ->method('getFieldsMeta')
-            ->with('res')
+            ->with($resultStub)
             ->will($this->returnValue($flags));
 
         $dbi->expects($this->once())
             ->method('tryQuery')
             ->with('SELECT a FROM b WHERE 1', DatabaseInterface::CONNECT_USER, DatabaseInterface::QUERY_UNBUFFERED)
-            ->will($this->returnValue('res'));
+            ->will($this->returnValue($resultStub));
 
-        $dbi->expects($this->once())
+        $resultStub->expects($this->once())
             ->method('numFields')
-            ->with('res')
             ->will($this->returnValue(2));
 
-        $dbi->expects($this->exactly(2))
+        $resultStub->expects($this->exactly(2))
             ->method('fetchRow')
             ->willReturnOnConsecutiveCalls(
                 [
                     null,
                     null,
                 ],
-                null
+                []
             );
 
         $_table = $this->getMockBuilder(Table::class)

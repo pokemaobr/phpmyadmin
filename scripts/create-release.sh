@@ -20,7 +20,7 @@ set -e
 KITS="all-languages english source"
 COMPRESSIONS="zip-7z txz tgz"
 # The version series this script is allowed to handle
-VERSION_SERIES="5.2"
+VERSION_SERIES="5.3"
 
 # Process parameters
 
@@ -125,6 +125,7 @@ cleanup_composer_vendors() {
     rm -rf \
         vendor/phpmyadmin/sql-parser/tests/ \
         vendor/phpmyadmin/sql-parser/tools/ \
+        vendor/phpmyadmin/sql-parser/src/Tools/ \
         vendor/phpmyadmin/sql-parser/locale/sqlparser.pot \
         vendor/phpmyadmin/sql-parser/locale/*/LC_MESSAGES/sqlparser.po \
         vendor/phpmyadmin/sql-parser/bin/ \
@@ -171,6 +172,8 @@ cleanup_composer_vendors() {
         vendor/williamdes/mariadb-mysql-kbs/dist/merged-raw.md \
         vendor/williamdes/mariadb-mysql-kbs/dist/merged-slim.json \
         vendor/williamdes/mariadb-mysql-kbs/dist/merged-ultraslim.php \
+        vendor/code-lts/u2f-php-server/phpunit.xml \
+        vendor/code-lts/u2f-php-server/test/ \
         vendor/nikic/fast-route/.travis.yml \
         vendor/nikic/fast-route/.hhconfig \
         vendor/nikic/fast-route/FastRoute.hhi \
@@ -185,6 +188,7 @@ cleanup_composer_vendors() {
         vendor/twig/twig/.editorconfig \
         vendor/twig/twig/.php_cs.dist \
         vendor/twig/twig/drupal_test.sh \
+        vendor/twig/twig/.php-cs-fixer.dist.php \
         vendor/webmozart/assert/.editorconfig \
         vendor/webmozart/assert/.github/ \
         vendor/webmozart/assert/.php_cs \
@@ -211,6 +215,7 @@ cleanup_composer_vendors() {
         vendor/google/recaptcha/examples/ \
         vendor/google/recaptcha/tests/
     rm -rf \
+        vendor/google/recaptcha/ARCHITECTURE.md \
         vendor/google/recaptcha/CONTRIBUTING.md \
         vendor/phpmyadmin/motranslator/CODE_OF_CONDUCT.md \
         vendor/phpmyadmin/motranslator/CONTRIBUTING.md \
@@ -219,12 +224,6 @@ cleanup_composer_vendors() {
         vendor/phpmyadmin/shapefile/CODE_OF_CONDUCT.md \
         vendor/phpmyadmin/sql-parser/CODE_OF_CONDUCT.md \
         vendor/phpmyadmin/sql-parser/CONTRIBUTING.md
-    find vendor/phpseclib/phpseclib/phpseclib/Crypt/ -maxdepth 1 -type f \
-        -not -name AES.php \
-        -not -name Base.php \
-        -not -name Random.php \
-        -not -name Rijndael.php \
-        -print0 | xargs -0 rm
     find vendor/tecnickcom/tcpdf/fonts/ -maxdepth 1 -type f \
         -not -name 'dejavusans.*' \
         -not -name 'dejavusansb.*' \
@@ -272,7 +271,7 @@ security_checkup() {
         echo 'TCPDF should be installed, detection failed !'
         exit 1;
     fi
-    if [ ! -f vendor/samyoul/u2f-php-server/src/U2FServer.php ]; then
+    if [ ! -f vendor/code-lts/u2f-php-server/src/U2FServer.php ]; then
         echo 'U2F-server should be installed, detection failed !'
         exit 1;
     fi
@@ -355,7 +354,7 @@ fi
 
 if [ $do_daily -eq 1 ] ; then
     echo '* setting the version suffix for the snapshot'
-    sed -i "s/'VERSION_SUFFIX', '.*'/'VERSION_SUFFIX', '+$today_date.$git_head_short'/" libraries/vendor_config.php
+    sed -i "s/'versionSuffix' => '.*'/'versionSuffix' => '+$today_date.$git_head_short'/" libraries/vendor_config.php
     php -l libraries/vendor_config.php
 fi
 
@@ -440,7 +439,7 @@ composer update --no-interaction --no-dev --optimize-autoloader
 
 # Parse the required versions from composer.json
 PACKAGES_VERSIONS=''
-PACKAGE_LIST='tecnickcom/tcpdf pragmarx/google2fa-qrcode bacon/bacon-qr-code samyoul/u2f-php-server'
+PACKAGE_LIST='tecnickcom/tcpdf pragmarx/google2fa-qrcode bacon/bacon-qr-code code-lts/u2f-php-server'
 
 for PACKAGES in $PACKAGE_LIST
 do
@@ -468,9 +467,6 @@ if [ -f package.json ] ; then
     echo "* Running Yarn"
     yarn install --production
 fi
-
-# Remove Bootstrap theme
-rm -rf themes/bootstrap
 
 # Remove git metadata
 rm .git

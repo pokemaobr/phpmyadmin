@@ -138,7 +138,7 @@ class PdfRelationSchema extends ExportRelationSchema
         );
         $this->diagram->setCMargin(0);
         $this->diagram->Open();
-        $this->diagram->SetAutoPageBreak('auto');
+        $this->diagram->setAutoPageBreak(true);
         $this->diagram->setOffline($this->offline);
 
         $alltables = $this->getTablesFromRequest();
@@ -149,10 +149,10 @@ class PdfRelationSchema extends ExportRelationSchema
         }
 
         if ($this->withDoc) {
-            $this->diagram->SetAutoPageBreak('auto', 15);
+            $this->diagram->setAutoPageBreak(true, 15);
             $this->diagram->setCMargin(1);
             $this->dataDictionaryDoc($alltables);
-            $this->diagram->SetAutoPageBreak('auto');
+            $this->diagram->setAutoPageBreak(true);
             $this->diagram->setCMargin(0);
         }
 
@@ -479,8 +479,6 @@ class PdfRelationSchema extends ExportRelationSchema
      */
     public function dataDictionaryDoc(array $alltables): void
     {
-        global $dbi;
-
          // TOC
         $this->diagram->AddPage($this->orientation);
         $this->diagram->Cell(0, 9, __('Table of contents'), 1, 0, 'C');
@@ -512,7 +510,7 @@ class PdfRelationSchema extends ExportRelationSchema
                 $this->diagram->customLinks['doc'][$table]['-']
             );
             // $this->diagram->Ln(1);
-            $fields = $dbi->getColumns($this->db, $table);
+            $fields = $GLOBALS['dbi']->getColumns($this->db, $table);
             foreach ($fields as $row) {
                 $this->diagram->SetX(20);
                 $field_name = $row['Field'];
@@ -548,7 +546,7 @@ class PdfRelationSchema extends ExportRelationSchema
         $z = 0;
         foreach ($alltables as $table) {
             $z++;
-            $this->diagram->SetAutoPageBreak(true, 15);
+            $this->diagram->setAutoPageBreak(true, 15);
             $this->diagram->AddPage($this->orientation);
             $this->diagram->Bookmark($table);
             $this->diagram->setAlias(
@@ -571,16 +569,16 @@ class PdfRelationSchema extends ExportRelationSchema
             $this->diagram->SetFont($this->ff, '', 8);
             $this->diagram->Ln();
 
-            $cfgRelation = $this->relation->getRelationsParam();
+            $relationParameters = $this->relation->getRelationParameters();
             $comments = $this->relation->getComments($this->db, $table);
-            if ($cfgRelation['mimework']) {
+            if ($relationParameters->browserTransformationFeature !== null) {
                 $mime_map = $this->transformations->getMime($this->db, $table, true);
             }
 
             /**
              * Gets table information
              */
-            $showtable = $dbi->getTable($this->db, $table)
+            $showtable = $GLOBALS['dbi']->getTable($this->db, $table)
                 ->getStatusInfo();
             $show_comment = $showtable['Comment'] ?? '';
             $create_time = isset($showtable['Create_time'])
@@ -602,7 +600,7 @@ class PdfRelationSchema extends ExportRelationSchema
             /**
              * Gets fields properties
              */
-            $columns = $dbi->getColumns($this->db, $table);
+            $columns = $GLOBALS['dbi']->getColumns($this->db, $table);
 
             // Find which tables are related with the current one and write it in
             // an array

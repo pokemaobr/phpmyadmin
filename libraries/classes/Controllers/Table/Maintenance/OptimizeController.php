@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Table\Maintenance;
 
-use InvalidArgumentException;
 use PhpMyAdmin\Config;
-use PhpMyAdmin\Controllers\Table\AbstractController;
+use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\Dbal\DatabaseName;
+use PhpMyAdmin\Dbal\InvalidIdentifierName;
 use PhpMyAdmin\Dbal\TableName;
 use PhpMyAdmin\Html\Generator;
 use PhpMyAdmin\Http\ServerRequest;
@@ -16,6 +16,7 @@ use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Table\Maintenance;
 use PhpMyAdmin\Template;
 use Webmozart\Assert\Assert;
+use Webmozart\Assert\InvalidArgumentException;
 
 use function __;
 use function count;
@@ -31,19 +32,16 @@ final class OptimizeController extends AbstractController
     public function __construct(
         ResponseRenderer $response,
         Template $template,
-        string $db,
-        string $table,
         Maintenance $model,
         Config $config
     ) {
-        parent::__construct($response, $template, $db, $table);
+        parent::__construct($response, $template);
         $this->model = $model;
         $this->config = $config;
     }
 
     public function __invoke(ServerRequest $request): void
     {
-        $dbParam = $request->getParam('db');
         $selectedTablesParam = $request->getParsedBodyParam('selected_tbl');
 
         try {
@@ -58,13 +56,12 @@ final class OptimizeController extends AbstractController
         }
 
         try {
-            Assert::string($dbParam);
-            $database = DatabaseName::fromString($dbParam);
+            $database = DatabaseName::fromValue($request->getParam('db'));
             $selectedTables = [];
             foreach ($selectedTablesParam as $table) {
-                $selectedTables[] = TableName::fromString($table);
+                $selectedTables[] = TableName::fromValue($table);
             }
-        } catch (InvalidArgumentException $exception) {
+        } catch (InvalidIdentifierName $exception) {
             $message = Message::error($exception->getMessage());
             $this->response->setRequestStatus(false);
             $this->response->addJSON('message', $message->getDisplay());

@@ -206,95 +206,93 @@ class ExportCodegen extends ExportPlugin
      */
     private function handleNHibernateCSBody($db, $table, $crlf, array $aliases = [])
     {
-        global $dbi;
-
         $db_alias = $db;
         $table_alias = $table;
         $this->initAlias($aliases, $db_alias, $table_alias);
-        $lines = [];
 
-        $result = $dbi->query(
+        $result = $GLOBALS['dbi']->query(
             sprintf(
                 'DESC %s.%s',
                 Util::backquote($db),
                 Util::backquote($table)
             )
         );
-        if ($result) {
-            /** @var TableProperty[] $tableProperties */
-            $tableProperties = [];
-            while ($row = $dbi->fetchRow($result)) {
-                $col_as = $this->getAlias($aliases, $row[0], 'col', $db, $table);
-                if (! empty($col_as)) {
-                    $row[0] = $col_as;
-                }
 
-                $tableProperties[] = new TableProperty($row);
+        /** @var TableProperty[] $tableProperties */
+        $tableProperties = [];
+        while ($row = $result->fetchRow()) {
+            $col_as = $this->getAlias($aliases, $row[0], 'col', $db, $table);
+            if (! empty($col_as)) {
+                $row[0] = $col_as;
             }
 
-            $dbi->freeResult($result);
-            $lines[] = 'using System;';
-            $lines[] = 'using System.Collections;';
-            $lines[] = 'using System.Collections.Generic;';
-            $lines[] = 'using System.Text;';
-            $lines[] = 'namespace ' . self::cgMakeIdentifier($db_alias);
-            $lines[] = '{';
-            $lines[] = '    #region '
-                . self::cgMakeIdentifier($table_alias);
-            $lines[] = '    public class '
-                . self::cgMakeIdentifier($table_alias);
-            $lines[] = '    {';
-            $lines[] = '        #region Member Variables';
-            foreach ($tableProperties as $tableProperty) {
-                $lines[] = $tableProperty->formatCs('        protected #dotNetPrimitiveType# _#name#;');
-            }
-
-            $lines[] = '        #endregion';
-            $lines[] = '        #region Constructors';
-            $lines[] = '        public '
-                . self::cgMakeIdentifier($table_alias) . '() { }';
-            $temp = [];
-            foreach ($tableProperties as $tableProperty) {
-                if ($tableProperty->isPK()) {
-                    continue;
-                }
-
-                $temp[] = $tableProperty->formatCs('#dotNetPrimitiveType# #name#');
-            }
-
-            $lines[] = '        public '
-                . self::cgMakeIdentifier($table_alias)
-                . '('
-                . implode(', ', $temp)
-                . ')';
-            $lines[] = '        {';
-            foreach ($tableProperties as $tableProperty) {
-                if ($tableProperty->isPK()) {
-                    continue;
-                }
-
-                $lines[] = $tableProperty->formatCs('            this._#name#=#name#;');
-            }
-
-            $lines[] = '        }';
-            $lines[] = '        #endregion';
-            $lines[] = '        #region Public Properties';
-            foreach ($tableProperties as $tableProperty) {
-                $lines[] = $tableProperty->formatCs(
-                    '        public virtual #dotNetPrimitiveType# #ucfirstName#'
-                    . "\n"
-                    . '        {' . "\n"
-                    . '            get {return _#name#;}' . "\n"
-                    . '            set {_#name#=value;}' . "\n"
-                    . '        }'
-                );
-            }
-
-            $lines[] = '        #endregion';
-            $lines[] = '    }';
-            $lines[] = '    #endregion';
-            $lines[] = '}';
+            $tableProperties[] = new TableProperty($row);
         }
+
+        unset($result);
+
+        $lines = [];
+        $lines[] = 'using System;';
+        $lines[] = 'using System.Collections;';
+        $lines[] = 'using System.Collections.Generic;';
+        $lines[] = 'using System.Text;';
+        $lines[] = 'namespace ' . self::cgMakeIdentifier($db_alias);
+        $lines[] = '{';
+        $lines[] = '    #region '
+            . self::cgMakeIdentifier($table_alias);
+        $lines[] = '    public class '
+            . self::cgMakeIdentifier($table_alias);
+        $lines[] = '    {';
+        $lines[] = '        #region Member Variables';
+        foreach ($tableProperties as $tableProperty) {
+            $lines[] = $tableProperty->formatCs('        protected #dotNetPrimitiveType# _#name#;');
+        }
+
+        $lines[] = '        #endregion';
+        $lines[] = '        #region Constructors';
+        $lines[] = '        public '
+            . self::cgMakeIdentifier($table_alias) . '() { }';
+        $temp = [];
+        foreach ($tableProperties as $tableProperty) {
+            if ($tableProperty->isPK()) {
+                continue;
+            }
+
+            $temp[] = $tableProperty->formatCs('#dotNetPrimitiveType# #name#');
+        }
+
+        $lines[] = '        public '
+            . self::cgMakeIdentifier($table_alias)
+            . '('
+            . implode(', ', $temp)
+            . ')';
+        $lines[] = '        {';
+        foreach ($tableProperties as $tableProperty) {
+            if ($tableProperty->isPK()) {
+                continue;
+            }
+
+            $lines[] = $tableProperty->formatCs('            this._#name#=#name#;');
+        }
+
+        $lines[] = '        }';
+        $lines[] = '        #endregion';
+        $lines[] = '        #region Public Properties';
+        foreach ($tableProperties as $tableProperty) {
+            $lines[] = $tableProperty->formatCs(
+                '        public virtual #dotNetPrimitiveType# #ucfirstName#'
+                . "\n"
+                . '        {' . "\n"
+                . '            get {return _#name#;}' . "\n"
+                . '            set {_#name#=value;}' . "\n"
+                . '        }'
+            );
+        }
+
+        $lines[] = '        #endregion';
+        $lines[] = '    }';
+        $lines[] = '    #endregion';
+        $lines[] = '}';
 
         return implode($crlf, $lines);
     }
@@ -315,8 +313,6 @@ class ExportCodegen extends ExportPlugin
         $crlf,
         array $aliases = []
     ) {
-        global $dbi;
-
         $db_alias = $db;
         $table_alias = $table;
         $this->initAlias($aliases, $db_alias, $table_alias);
@@ -328,43 +324,40 @@ class ExportCodegen extends ExportPlugin
         $lines[] = '    <class '
             . 'name="' . self::cgMakeIdentifier($table_alias) . '" '
             . 'table="' . self::cgMakeIdentifier($table_alias) . '">';
-        $result = $dbi->query(
+        $result = $GLOBALS['dbi']->query(
             sprintf(
                 'DESC %s.%s',
                 Util::backquote($db),
                 Util::backquote($table)
             )
         );
-        if ($result) {
-            while ($row = $dbi->fetchRow($result)) {
-                $col_as = $this->getAlias($aliases, $row[0], 'col', $db, $table);
-                if (! empty($col_as)) {
-                    $row[0] = $col_as;
-                }
 
-                $tableProperty = new TableProperty($row);
-                if ($tableProperty->isPK()) {
-                    $lines[] = $tableProperty->formatXml(
-                        '        <id name="#ucfirstName#" type="#dotNetObjectType#"'
-                        . ' unsaved-value="0">' . "\n"
-                        . '            <column name="#name#" sql-type="#type#"'
-                        . ' not-null="#notNull#" unique="#unique#"'
-                        . ' index="PRIMARY"/>' . "\n"
-                        . '            <generator class="native" />' . "\n"
-                        . '        </id>'
-                    );
-                } else {
-                    $lines[] = $tableProperty->formatXml(
-                        '        <property name="#ucfirstName#"'
-                        . ' type="#dotNetObjectType#">' . "\n"
-                        . '            <column name="#name#" sql-type="#type#"'
-                        . ' not-null="#notNull#" #indexName#/>' . "\n"
-                        . '        </property>'
-                    );
-                }
+        while ($row = $result->fetchRow()) {
+            $col_as = $this->getAlias($aliases, $row[0], 'col', $db, $table);
+            if (! empty($col_as)) {
+                $row[0] = $col_as;
             }
 
-            $dbi->freeResult($result);
+            $tableProperty = new TableProperty($row);
+            if ($tableProperty->isPK()) {
+                $lines[] = $tableProperty->formatXml(
+                    '        <id name="#ucfirstName#" type="#dotNetObjectType#"'
+                    . ' unsaved-value="0">' . "\n"
+                    . '            <column name="#name#" sql-type="#type#"'
+                    . ' not-null="#notNull#" unique="#unique#"'
+                    . ' index="PRIMARY"/>' . "\n"
+                    . '            <generator class="native" />' . "\n"
+                    . '        </id>'
+                );
+            } else {
+                $lines[] = $tableProperty->formatXml(
+                    '        <property name="#ucfirstName#"'
+                    . ' type="#dotNetObjectType#">' . "\n"
+                    . '            <column name="#name#" sql-type="#type#"'
+                    . ' not-null="#notNull#" #indexName#/>' . "\n"
+                    . '        </property>'
+                );
+            }
         }
 
         $lines[] = '    </class>';

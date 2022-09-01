@@ -11,7 +11,6 @@ use PhpMyAdmin\Image\ImageWrapper;
 use TCPDF;
 
 use function array_merge;
-use function array_push;
 use function array_slice;
 use function count;
 use function explode;
@@ -32,8 +31,6 @@ class GisMultiPolygon extends GisGeometry
 
     /**
      * A private constructor; prevents direct creation of object.
-     *
-     * @access private
      */
     private function __construct()
     {
@@ -43,8 +40,6 @@ class GisMultiPolygon extends GisGeometry
      * Returns the singleton.
      *
      * @return GisMultiPolygon the singleton
-     *
-     * @access public
      */
     public static function singleton()
     {
@@ -61,8 +56,6 @@ class GisMultiPolygon extends GisGeometry
      * @param string $spatial spatial data of a row
      *
      * @return array an array containing the min, max values for x and y coordinates
-     *
-     * @access public
      */
     public function scaleRow($spatial)
     {
@@ -111,13 +104,14 @@ class GisMultiPolygon extends GisGeometry
         $blue = (int) hexdec(mb_substr($fill_color, 4, 2));
         $color = $image->colorAllocate($red, $green, $blue);
 
+        $label = trim($label ?? '');
+
         // Trim to remove leading 'MULTIPOLYGON(((' and trailing ')))'
         $multipolygon = mb_substr($spatial, 15, -3);
         // Separate each polygon
         $polygons = explode(')),((', $multipolygon);
 
         $first_poly = true;
-        $points_arr = [];
         foreach ($polygons as $polygon) {
             // If the polygon doesn't have an inner polygon
             if (! str_contains($polygon, '),(')) {
@@ -141,7 +135,7 @@ class GisMultiPolygon extends GisGeometry
             // draw polygon
             $image->filledPolygon($points_arr, $color);
             // mark label point if applicable
-            if (isset($label) && trim($label) != '' && $first_poly) {
+            if ($label !== '' && $first_poly) {
                 $label_point = [
                     $points_arr[2],
                     $points_arr[3],
@@ -157,7 +151,7 @@ class GisMultiPolygon extends GisGeometry
                 1,
                 (int) round($label_point[0]),
                 (int) round($label_point[1]),
-                trim((string) $label),
+                $label,
                 $black
             );
         }
@@ -175,8 +169,6 @@ class GisMultiPolygon extends GisGeometry
      * @param TCPDF       $pdf        TCPDF instance
      *
      * @return TCPDF the modified TCPDF instance
-     *
-     * @access public
      */
     public function prepareRowAsPdf($spatial, ?string $label, $fill_color, array $scale_data, $pdf)
     {
@@ -189,6 +181,8 @@ class GisMultiPolygon extends GisGeometry
             $green,
             $blue,
         ];
+
+        $label = trim($label ?? '');
 
         // Trim to remove leading 'MULTIPOLYGON(((' and trailing ')))'
         $multipolygon = mb_substr($spatial, 15, -3);
@@ -219,7 +213,7 @@ class GisMultiPolygon extends GisGeometry
             // draw polygon
             $pdf->Polygon($points_arr, 'F*', [], $color, true);
             // mark label point if applicable
-            if (isset($label) && trim($label) != '' && $first_poly) {
+            if ($label !== '' && $first_poly) {
                 $label_point = [
                     $points_arr[2],
                     $points_arr[3],
@@ -233,7 +227,7 @@ class GisMultiPolygon extends GisGeometry
         if (isset($label_point)) {
             $pdf->SetXY($label_point[0], $label_point[1]);
             $pdf->SetFontSize(5);
-            $pdf->Cell(0, 0, trim((string) $label));
+            $pdf->Cell(0, 0, $label);
         }
 
         return $pdf;
@@ -248,8 +242,6 @@ class GisMultiPolygon extends GisGeometry
      * @param array  $scale_data Array containing data related to scaling
      *
      * @return string the code related to a row in the GIS dataset
-     *
-     * @access public
      */
     public function prepareRowAsSvg($spatial, $label, $fill_color, array $scale_data)
     {
@@ -312,13 +304,10 @@ class GisMultiPolygon extends GisGeometry
      * @param array  $scale_data Array containing data related to scaling
      *
      * @return string JavaScript related to a row in the GIS dataset
-     *
-     * @access public
      */
     public function prepareRowAsOl($spatial, int $srid, $label, $fill_color, array $scale_data)
     {
-        $fill_opacity = 0.8;
-        array_push($fill_color, $fill_opacity);
+        $fill_color[] = 0.8;
         $fill_style = ['color' => $fill_color];
         $stroke_style = [
             'color' => [0,0,0],
@@ -360,8 +349,6 @@ class GisMultiPolygon extends GisGeometry
      * @param array  $scale_data Array containing data related to scaling
      *
      * @return string the code to draw the ring
-     *
-     * @access private
      */
     private function drawPath($polygon, array $scale_data)
     {
@@ -386,8 +373,6 @@ class GisMultiPolygon extends GisGeometry
      * @param string|null $empty    Value for empty points
      *
      * @return string WKT with the set of parameters passed by the GIS editor
-     *
-     * @access public
      */
     public function generateWkt(array $gis_data, $index, $empty = '')
     {
@@ -441,8 +426,6 @@ class GisMultiPolygon extends GisGeometry
      * @param array $row_data GIS data
      *
      * @return string the WKT for the data from ESRI shape files
-     *
-     * @access public
      */
     public function getShape(array $row_data)
     {
@@ -532,8 +515,6 @@ class GisMultiPolygon extends GisGeometry
      * @param int    $index Index of the geometry
      *
      * @return array params for the GIS data editor from the value of the GIS column
-     *
-     * @access public
      */
     public function generateParams($value, $index = -1)
     {

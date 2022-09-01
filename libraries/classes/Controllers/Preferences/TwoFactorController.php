@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Preferences;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\Message;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
+use PhpMyAdmin\Routing;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\TwoFactor;
 
@@ -27,17 +28,17 @@ class TwoFactorController extends AbstractController
 
     public function __invoke(): void
     {
-        global $cfg, $route;
+        $route = Routing::getCurrentRoute();
 
-        $cfgRelation = $this->relation->getRelationsParam();
+        $relationParameters = $this->relation->getRelationParameters();
 
         echo $this->template->render('preferences/header', [
             'route' => $route,
             'is_saved' => ! empty($_GET['saved']),
-            'has_config_storage' => $cfgRelation['userconfigwork'],
+            'has_config_storage' => $relationParameters->userPreferencesFeature !== null,
         ]);
 
-        $twoFactor = new TwoFactor($cfg['Server']['user']);
+        $twoFactor = new TwoFactor($GLOBALS['cfg']['Server']['user']);
 
         if (isset($_POST['2fa_remove'])) {
             if (! $twoFactor->check(true)) {

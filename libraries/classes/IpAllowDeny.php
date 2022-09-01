@@ -34,8 +34,6 @@ class IpAllowDeny
      *
      * @param string $testRange string of IP range to match
      * @param string $ipToTest  string of IP to test against range
-     *
-     * @access public
      */
     public function ipMaskTest($testRange, $ipToTest): bool
     {
@@ -65,8 +63,6 @@ class IpAllowDeny
      *
      * @param string $testRange string of IP range to match
      * @param string $ipToTest  string of IP to test against range
-     *
-     * @access public
      */
     public function ipv4MaskTest($testRange, $ipToTest): bool
     {
@@ -129,8 +125,6 @@ class IpAllowDeny
      *
      * @param string $test_range string of IP range to match
      * @param string $ip_to_test string of IP to test against range
-     *
-     * @access public
      */
     public function ipv6MaskTest($test_range, $ip_to_test): bool
     {
@@ -219,8 +213,6 @@ class IpAllowDeny
      * Runs through IP Allow rules the use of it below for more information
      *
      * @see     Core::getIp()
-     *
-     * @access public
      */
     public function allow(): bool
     {
@@ -231,8 +223,6 @@ class IpAllowDeny
      * Runs through IP Deny rules the use of it below for more information
      *
      * @see     Core::getIp()
-     *
-     * @access public
      */
     public function deny(): bool
     {
@@ -245,13 +235,9 @@ class IpAllowDeny
      * @see     Core::getIp()
      *
      * @param string $type 'allow' | 'deny' type of rule to match
-     *
-     * @access public
      */
     private function allowDeny($type): bool
     {
-        global $cfg;
-
         // Grabs true IP of the user and returns if it can't be found
         $remote_ip = Core::getIp();
         if (empty($remote_ip)) {
@@ -259,11 +245,11 @@ class IpAllowDeny
         }
 
         // copy username
-        $username = $cfg['Server']['user'];
+        $username = $GLOBALS['cfg']['Server']['user'];
 
         // copy rule database
-        if (isset($cfg['Server']['AllowDeny']['rules'])) {
-            $rules = $cfg['Server']['AllowDeny']['rules'];
+        if (isset($GLOBALS['cfg']['Server']['AllowDeny']['rules'])) {
+            $rules = $GLOBALS['cfg']['Server']['AllowDeny']['rules'];
             if (! is_array($rules)) {
                 $rules = [];
             }

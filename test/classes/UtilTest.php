@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests;
 
-use PhpMyAdmin\Core;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\FieldMetadata;
 use PhpMyAdmin\MoTranslator\Loader;
-use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\SqlParser\Context;
 use PhpMyAdmin\SqlParser\Token;
 use PhpMyAdmin\Util;
@@ -79,10 +77,10 @@ class UtilTest extends AbstractTestCase
         $GLOBALS['db'] = 'db';
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
 
-        $actual = Util::getUniqueCondition(0, 0, [], []);
+        $actual = Util::getUniqueCondition(0, [], []);
         $this->assertEquals(['', false, []], $actual);
 
-        $actual = Util::getUniqueCondition(0, 0, [], [], true);
+        $actual = Util::getUniqueCondition(0, [], [], true);
         $this->assertEquals(['', true, []], $actual);
     }
 
@@ -163,7 +161,7 @@ class UtilTest extends AbstractTestCase
             ]),
         ];
 
-        $actual = Util::getUniqueCondition(0, count($meta), $meta, [
+        $actual = Util::getUniqueCondition(count($meta), $meta, [
             null,
             'value\'s',
             123456,
@@ -183,7 +181,7 @@ class UtilTest extends AbstractTestCase
                 . ' AND `table`.`field4` = 123.456 AND `table`.`field5` = CAST(0x76616c7565 AS BINARY)'
                 . ' AND `table`.`field7` = \'value\' AND `table`.`field8` = \'value\''
                 . ' AND `table`.`field9` = CAST(0x76616c7565 AS BINARY)'
-                . ' AND `table`.`field10` =0x76616c7565 AND'
+                . ' AND `table`.`field10` = CAST(0x76616c7565 AS BINARY)'
                 . ' AND `table`.`field12` = b\'0001\'',
                 false,
                 [
@@ -214,7 +212,7 @@ class UtilTest extends AbstractTestCase
             ]),
         ];
 
-        $actual = Util::getUniqueCondition(0, 1, $meta, [str_repeat('*', 1001)]);
+        $actual = Util::getUniqueCondition(1, $meta, [str_repeat('*', 1001)]);
         $this->assertEquals(
             ['CHAR_LENGTH(`table`.`field`)  = 1001', false, ['`table`.`field`' => ' = 1001']],
             $actual
@@ -236,7 +234,7 @@ class UtilTest extends AbstractTestCase
             ]),
         ];
 
-        $actual = Util::getUniqueCondition(0, count($meta), $meta, [1, 'value']);
+        $actual = Util::getUniqueCondition(count($meta), $meta, [1, 'value']);
         $this->assertEquals(['`table`.`id` = 1', true, ['`table`.`id`' => '= 1']], $actual);
     }
 
@@ -255,7 +253,7 @@ class UtilTest extends AbstractTestCase
             ]),
         ];
 
-        $actual = Util::getUniqueCondition(0, count($meta), $meta, ['unique', 'value']);
+        $actual = Util::getUniqueCondition(count($meta), $meta, ['unique', 'value']);
         $this->assertEquals(['`table`.`id` = \'unique\'', true, ['`table`.`id`' => '= \'unique\'']], $actual);
     }
 
@@ -330,53 +328,17 @@ class UtilTest extends AbstractTestCase
         SessionCache::set('is_superuser', 'yes');
         $this->assertEquals('yes', $_SESSION['cache']['server_server']['is_superuser']);
 
+        SessionCache::set('mysql_cur_user', 'mysql');
+        $this->assertEquals(
+            'mysql',
+            $_SESSION['cache']['server_server']['mysql_cur_user']
+        );
+
         Util::clearUserCache();
         $this->assertArrayNotHasKey('is_superuser', $_SESSION['cache']['server_server']);
-    }
-
-    public function testCheckParameterMissing(): void
-    {
-        parent::setGlobalConfig();
-        $_REQUEST = [];
-        $GLOBALS['text_dir'] = 'ltr';
-        $GLOBALS['PMA_PHP_SELF'] = Core::getenv('PHP_SELF');
-        $GLOBALS['db'] = 'db';
-        $GLOBALS['table'] = 'table';
-        $GLOBALS['server'] = 1;
-        $GLOBALS['cfg']['ServerDefault'] = 1;
-        $GLOBALS['cfg']['AllowThirdPartyFraming'] = false;
-        ResponseRenderer::getInstance()->setAjax(false);
-
-        $this->expectOutputRegex('/Missing parameter: field/');
-
-        Util::checkParameters(
-            [
-                'db',
-                'table',
-                'field',
-            ]
-        );
-    }
-
-    public function testCheckParameter(): void
-    {
-        parent::setGlobalConfig();
-        $GLOBALS['cfg'] = ['ServerDefault' => 1];
-        $GLOBALS['text_dir'] = 'ltr';
-        $GLOBALS['PMA_PHP_SELF'] = Core::getenv('PHP_SELF');
-        $GLOBALS['db'] = 'dbDatabase';
-        $GLOBALS['table'] = 'tblTable';
-        $GLOBALS['field'] = 'test_field';
-        $GLOBALS['sql_query'] = 'SELECT * FROM tblTable;';
-
-        $this->expectOutputString('');
-        Util::checkParameters(
-            [
-                'db',
-                'table',
-                'field',
-                'sql_query',
-            ]
+        $this->assertArrayNotHasKey(
+            'mysql_cur_user',
+            $_SESSION['cache']['server_server']
         );
     }
 
@@ -1593,86 +1555,21 @@ class UtilTest extends AbstractTestCase
     }
 
     /**
-     * backquote test with different param $do_it (true, false)
-     *
-     * @param string|array $a String
-     * @param string|array $b Expected output
-     *
-     * @dataProvider providerBackquote
+     * @dataProvider providerForTestBackquote
      */
-    public function testBackquote($a, $b): void
+    public function testBackquote(?string $entry, string $expectedNoneOutput, string $expectedMssqlOutput): void
     {
-        $this->assertEquals($b, Util::backquote($a));
-    }
-
-    /**
-     * data provider for backquote test
-     *
-     * @return array
-     */
-    public function providerBackquote(): array
-    {
-        return [
-            [
-                '0',
-                '`0`',
-            ],
-            [
-                'test',
-                '`test`',
-            ],
-            [
-                'te`st',
-                '`te``st`',
-            ],
-            [
-                [
-                    'test',
-                    'te`st',
-                    '',
-                    '*',
-                ],
-                [
-                    '`test`',
-                    '`te``st`',
-                    '',
-                    '*',
-                ],
-            ],
-        ];
-    }
-
-    /**
-     * backquoteCompat test with different param $compatibility (NONE, MSSQL)
-     *
-     * @param string|array $entry               String
-     * @param string|array $expectedNoneOutput  Expected none output
-     * @param string|array $expectedMssqlOutput Expected MSSQL output
-     *
-     * @dataProvider providerBackquoteCompat
-     */
-    public function testBackquoteCompat($entry, $expectedNoneOutput, $expectedMssqlOutput): void
-    {
-        // Test bypass quoting (used by dump functions)
+        $this->assertSame($expectedNoneOutput, Util::backquote($entry));
         $this->assertEquals($entry, Util::backquoteCompat($entry, 'NONE', false));
-
-        // Run tests in MSSQL compatibility mode
-        // Test bypass quoting (used by dump functions)
         $this->assertEquals($entry, Util::backquoteCompat($entry, 'MSSQL', false));
-
-        // Test backquote
-        $this->assertEquals($expectedNoneOutput, Util::backquoteCompat($entry, 'NONE'));
-
-        // Test backquote
-        $this->assertEquals($expectedMssqlOutput, Util::backquoteCompat($entry, 'MSSQL'));
+        $this->assertSame($expectedNoneOutput, Util::backquoteCompat($entry, 'NONE'));
+        $this->assertSame($expectedMssqlOutput, Util::backquoteCompat($entry, 'MSSQL'));
     }
 
     /**
-     * data provider for backquoteCompat test
-     *
-     * @return array
+     * @return array<int|string, string|null>[]
      */
-    public function providerBackquoteCompat(): array
+    public function providerForTestBackquote(): array
     {
         return [
             [
@@ -1691,24 +1588,24 @@ class UtilTest extends AbstractTestCase
                 '"te`st"',
             ],
             [
-                [
-                    'test',
-                    'te`st',
-                    '',
-                    '*',
-                ],
-                [
-                    '`test`',
-                    '`te``st`',
-                    '',
-                    '*',
-                ],
-                [
-                    '"test"',
-                    '"te`st"',
-                    '',
-                    '*',
-                ],
+                'te"st',
+                '`te"st`',
+                '"te\"st"',
+            ],
+            [
+                '',
+                '',
+                '',
+            ],
+            [
+                '*',
+                '*',
+                '*',
+            ],
+            [
+                null,
+                '',
+                '',
             ],
         ];
     }

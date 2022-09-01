@@ -7,14 +7,13 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Plugins\Schema\Pdf;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Pdf as PdfLib;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\Util;
 
 use function __;
 use function count;
 use function getcwd;
-use function is_array;
 use function max;
 use function mb_ord;
 use function str_replace;
@@ -36,8 +35,6 @@ if (getcwd() == __DIR__) {
  * in developing the structure of PDF Schema Export
  *
  * @see     TCPDF
- *
- * @access  public
  */
 class Pdf extends PdfLib
 {
@@ -92,8 +89,6 @@ class Pdf extends PdfLib
      * @param int    $pageNumber  schema page number that is being exported
      * @param bool   $withDoc     with document dictionary
      * @param string $db          the database name
-     *
-     * @access public
      */
     public function __construct(
         $orientation,
@@ -103,13 +98,11 @@ class Pdf extends PdfLib
         $withDoc,
         $db
     ) {
-        global $dbi;
-
         parent::__construct($orientation, $unit, $paper);
         $this->pageNumber = $pageNumber;
         $this->withDoc = $withDoc;
         $this->db = $db;
-        $this->relation = new Relation($dbi);
+        $this->relation = new Relation($GLOBALS['dbi']);
     }
 
     /**
@@ -263,8 +256,6 @@ class Pdf extends PdfLib
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps
     public function Header(): void
     {
-        global $dbi;
-
         // We only show this if we find something in the new pdf_pages table
 
         // This function must be named "Header" to work with the TCPDF library
@@ -272,20 +263,17 @@ class Pdf extends PdfLib
             return;
         }
 
-        if ($this->offline || $this->pageNumber == -1) {
+        $pdfFeature = $this->relation->getRelationParameters()->pdfFeature;
+        if ($this->offline || $this->pageNumber == -1 || $pdfFeature === null) {
             $pg_name = __('PDF export page');
         } else {
             $test_query = 'SELECT * FROM '
-                . Util::backquote($GLOBALS['cfgRelation']['db']) . '.'
-                . Util::backquote($GLOBALS['cfgRelation']['pdf_pages'])
-                . ' WHERE db_name = \'' . $dbi->escapeString($this->db)
+                . Util::backquote($pdfFeature->database) . '.'
+                . Util::backquote($pdfFeature->pdfPages)
+                . ' WHERE db_name = \'' . $GLOBALS['dbi']->escapeString($this->db)
                 . '\' AND page_nr = \'' . $this->pageNumber . '\'';
-            $test_rs = $this->relation->queryAsControlUser($test_query);
-            $pageDesc = '';
-            $pages = $dbi->fetchAssoc($test_rs);
-            if (is_array($pages)) {
-                $pageDesc = (string) $pages['page_descr'];
-            }
+            $test_rs = $GLOBALS['dbi']->queryAsControlUser($test_query);
+            $pageDesc = (string) $test_rs->fetchValue('page_descr');
 
             $pg_name = ucfirst($pageDesc);
         }
@@ -435,8 +423,6 @@ class Pdf extends PdfLib
      * Set whether the document is generated from client side DB
      *
      * @param bool $value whether offline
-     *
-     * @access private
      */
     public function setOffline($value): void
     {

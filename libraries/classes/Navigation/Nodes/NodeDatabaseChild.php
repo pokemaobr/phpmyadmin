@@ -34,8 +34,8 @@ abstract class NodeDatabaseChild extends Node
     public function getHtmlForControlButtons(): string
     {
         $ret = '';
-        $cfgRelation = $this->relation->getRelationsParam();
-        if ($cfgRelation['navwork']) {
+        $relationParameters = $this->relation->getRelationParameters();
+        if ($relationParameters->navigationItemsHidingFeature !== null) {
             $db = $this->realParent()->realName;
             $item = $this->realName;
 
@@ -48,7 +48,7 @@ abstract class NodeDatabaseChild extends Node
 
             $ret = '<span class="navItemControls">'
                 . '<a href="' . Url::getFromRoute('/navigation') . '" data-post="'
-                . Url::getCommon($params, '') . '"'
+                . Url::getCommon($params, '', false) . '"'
                 . ' class="hideNavItem ajax">'
                 . Generator::getImage('hide', __('Hide'))
                 . '</a></span>';

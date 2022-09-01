@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Plugins\Schema;
 
-use PhpMyAdmin\Relation;
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Url;
 use PhpMyAdmin\Util;
 
@@ -62,13 +62,11 @@ class ExportRelationSchema
      */
     public function __construct($db, $diagram)
     {
-        global $dbi;
-
         $this->db = $db;
         $this->diagram = $diagram;
         $this->setPageNumber((int) $_REQUEST['page_number']);
         $this->setOffline(isset($_REQUEST['offline_export']));
-        $this->relation = new Relation($dbi);
+        $this->relation = new Relation($GLOBALS['dbi']);
     }
 
     /**
@@ -149,8 +147,6 @@ class ExportRelationSchema
      * Set Show only keys
      *
      * @param bool $value show only keys or not
-     *
-     * @access public
      */
     public function setShowKeys(bool $value): void
     {
@@ -169,8 +165,6 @@ class ExportRelationSchema
      * Set Orientation
      *
      * @param string $value Orientation will be portrait or landscape
-     *
-     * @access public
      */
     public function setOrientation(string $value): void
     {
@@ -191,8 +185,6 @@ class ExportRelationSchema
      * Set type of paper
      *
      * @param string $value paper type can be A4 etc
-     *
-     * @access public
      */
     public function setPaper(string $value): void
     {
@@ -213,8 +205,6 @@ class ExportRelationSchema
      * Set whether the document is generated from client side DB
      *
      * @param bool $value offline or not
-     *
-     * @access public
      */
     public function setOffline(bool $value): void
     {
@@ -223,8 +213,6 @@ class ExportRelationSchema
 
     /**
      * Returns whether the client side database is used
-     *
-     * @access public
      */
     public function isOffline(): bool
     {
@@ -257,17 +245,17 @@ class ExportRelationSchema
      */
     protected function getFileName($extension): string
     {
-        global $dbi;
+        $pdfFeature = $this->relation->getRelationParameters()->pdfFeature;
 
         $filename = $this->db . $extension;
         // Get the name of this page to use as filename
-        if ($this->pageNumber != -1 && ! $this->offline) {
+        if ($this->pageNumber != -1 && ! $this->offline && $pdfFeature !== null) {
             $_name_sql = 'SELECT page_descr FROM '
-                . Util::backquote($GLOBALS['cfgRelation']['db']) . '.'
-                . Util::backquote($GLOBALS['cfgRelation']['pdf_pages'])
+                . Util::backquote($pdfFeature->database) . '.'
+                . Util::backquote($pdfFeature->pdfPages)
                 . ' WHERE page_nr = ' . $this->pageNumber;
-            $_name_rs = $this->relation->queryAsControlUser($_name_sql);
-            $_name_row = $dbi->fetchRow($_name_rs);
+            $_name_rs = $GLOBALS['dbi']->queryAsControlUser($_name_sql);
+            $_name_row = $_name_rs->fetchRow();
             $filename = $_name_row[0] . $extension;
         }
 
@@ -280,8 +268,6 @@ class ExportRelationSchema
      * @param int    $pageNumber    ID of the chosen page
      * @param string $type          Schema Type
      * @param string $error_message The error message
-     *
-     * @access public
      */
     public static function dieSchema($pageNumber, $type = '', $error_message = ''): void
     {

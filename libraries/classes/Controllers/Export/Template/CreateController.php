@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Export\Template;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\Export\Template as ExportTemplate;
 use PhpMyAdmin\Export\TemplateModel;
 use PhpMyAdmin\Http\ServerRequest;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
 
 use function is_array;
-use function is_string;
 
 final class CreateController extends AbstractController
 {
@@ -36,8 +35,6 @@ final class CreateController extends AbstractController
 
     public function __invoke(ServerRequest $request): void
     {
-        global $cfg;
-
         /** @var string $exportType */
         $exportType = $request->getParsedBodyParam('exportType', '');
         /** @var string $templateName */
@@ -47,21 +44,24 @@ final class CreateController extends AbstractController
         /** @var string|null $templateId */
         $templateId = $request->getParsedBodyParam('template_id');
 
-        $cfgRelation = $this->relation->getRelationsParam();
-
-        if (! $cfgRelation['exporttemplateswork']) {
+        $exportTemplatesFeature = $this->relation->getRelationParameters()->exportTemplatesFeature;
+        if ($exportTemplatesFeature === null) {
             return;
         }
 
         $template = ExportTemplate::fromArray([
-            'username' => $cfg['Server']['user'],
+            'username' => $GLOBALS['cfg']['Server']['user'],
             'exportType' => $exportType,
             'name' => $templateName,
             'data' => $templateData,
         ]);
-        $result = $this->model->create($cfgRelation['db'], $cfgRelation['export_templates'], $template);
+        $result = $this->model->create(
+            $exportTemplatesFeature->database,
+            $exportTemplatesFeature->exportTemplates,
+            $template
+        );
 
-        if (is_string($result)) {
+        if ($result !== '') {
             $this->response->setRequestStatus(false);
             $this->response->addJSON('message', $result);
 
@@ -69,8 +69,8 @@ final class CreateController extends AbstractController
         }
 
         $templates = $this->model->getAll(
-            $cfgRelation['db'],
-            $cfgRelation['export_templates'],
+            $exportTemplatesFeature->database,
+            $exportTemplatesFeature->exportTemplates,
             $template->getUsername(),
             $template->getExportType()
         );

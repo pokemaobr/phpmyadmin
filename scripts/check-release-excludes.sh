@@ -150,7 +150,7 @@ validateExtension() {
                 -a "${filename}" != "README.md" -a "${filename}" != "BACKERS.md" \
                 -a "${filename}" != "LICENSE.md" -a "${filename}" != "ARCHITECTURE.md" \
                 -a "${filename}" != "LICENSE.txt" -a "${filename}" != "AUTHORS" \
-                -a "${filename}" != "LICENCE.md" \
+                -a "${filename}" != "LICENCE.md" -a "${filename}" != "LICENCE" \
             ]; then
                 foundFileExt
             fi
@@ -169,9 +169,7 @@ validateExtension() {
         ;;
         favicon.ico)
         ;;
-        print.css)
-        ;;
-        babel.config.json)
+        webpack.config.js)
         ;;
         package.json)
         ;;
@@ -180,8 +178,6 @@ validateExtension() {
         composer.lock)
         ;;
         yarn.lock)
-        ;;
-        .rtlcssrc.json)
         ;;
         robots.txt)
         ;;

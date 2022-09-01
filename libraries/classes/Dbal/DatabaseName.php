@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Dbal;
 
-use InvalidArgumentException;
 use Stringable;
 use Webmozart\Assert\Assert;
+use Webmozart\Assert\InvalidArgumentException;
 
 /**
  * @psalm-immutable
@@ -26,20 +26,39 @@ final class DatabaseName implements Stringable
     private $name;
 
     /**
-     * @throws InvalidArgumentException
+     * @param mixed $name
+     *
+     * @throws InvalidDatabaseName
      */
-    private function __construct(string $name)
+    private function __construct($name)
     {
-        Assert::stringNotEmpty($name);
-        Assert::maxLength($name, self::MAX_LENGTH);
-        Assert::notEndsWith($name, ' ');
+        try {
+            Assert::stringNotEmpty($name);
+        } catch (InvalidArgumentException $exception) {
+            throw InvalidDatabaseName::fromEmptyName();
+        }
+
+        try {
+            Assert::maxLength($name, self::MAX_LENGTH);
+        } catch (InvalidArgumentException $exception) {
+            throw InvalidDatabaseName::fromLongName(self::MAX_LENGTH);
+        }
+
+        try {
+            Assert::notEndsWith($name, ' ');
+        } catch (InvalidArgumentException $exception) {
+            throw InvalidDatabaseName::fromNameWithTrailingSpace();
+        }
+
         $this->name = $name;
     }
 
     /**
-     * @throws InvalidArgumentException
+     * @param mixed $name
+     *
+     * @throws InvalidDatabaseName
      */
-    public static function fromString(string $name): self
+    public static function fromValue($name): self
     {
         return new self($name);
     }

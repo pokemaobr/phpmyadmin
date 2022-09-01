@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Table\Structure;
 
-use PhpMyAdmin\Controllers\Table\AbstractController;
+use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Message;
 use PhpMyAdmin\ResponseRenderer;
@@ -19,7 +19,6 @@ use function count;
 use function implode;
 use function in_array;
 use function is_array;
-use function is_string;
 use function mb_strtoupper;
 use function sprintf;
 use function str_replace;
@@ -35,13 +34,11 @@ final class MoveColumnsController extends AbstractController
     public function __construct(
         ResponseRenderer $response,
         Template $template,
-        string $db,
-        string $table,
         DatabaseInterface $dbi
     ) {
-        parent::__construct($response, $template, $db, $table);
+        parent::__construct($response, $template);
         $this->dbi = $dbi;
-        $this->tableObj = $this->dbi->getTable($this->db, $this->table);
+        $this->tableObj = $this->dbi->getTable($GLOBALS['db'], $GLOBALS['table']);
     }
 
     public function __invoke(): void
@@ -50,12 +47,12 @@ final class MoveColumnsController extends AbstractController
             return;
         }
 
-        $this->dbi->selectDb($this->db);
+        $this->dbi->selectDb($GLOBALS['db']);
 
         /**
          * load the definitions for all columns
          */
-        $columns = $this->dbi->getColumnsFull($this->db, $this->table);
+        $columns = $this->dbi->getColumnsFull($GLOBALS['db'], $GLOBALS['table']);
         $column_names = array_keys($columns);
         $changes = [];
 
@@ -147,7 +144,7 @@ final class MoveColumnsController extends AbstractController
         // query for moving the columns
         $sql_query = sprintf(
             'ALTER TABLE %s %s',
-            Util::backquote($this->table),
+            Util::backquote($GLOBALS['table']),
             implode(', ', $changes)
         );
 
@@ -162,7 +159,7 @@ final class MoveColumnsController extends AbstractController
 
         $this->dbi->tryQuery($sql_query);
         $tmp_error = $this->dbi->getError();
-        if (is_string($tmp_error)) {
+        if ($tmp_error !== '') {
             $this->response->setRequestStatus(false);
             $this->response->addJSON('message', Message::error($tmp_error));
 

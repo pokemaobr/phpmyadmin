@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Table\Partition;
 
-use InvalidArgumentException;
-use PhpMyAdmin\Controllers\Table\AbstractController;
+use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\Dbal\DatabaseName;
+use PhpMyAdmin\Dbal\InvalidIdentifierName;
 use PhpMyAdmin\Dbal\TableName;
 use PhpMyAdmin\Html\Generator;
 use PhpMyAdmin\Http\ServerRequest;
@@ -15,6 +15,7 @@ use PhpMyAdmin\Partitioning\Maintenance;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
 use Webmozart\Assert\Assert;
+use Webmozart\Assert\InvalidArgumentException;
 
 use function __;
 
@@ -26,27 +27,21 @@ final class DropController extends AbstractController
     public function __construct(
         ResponseRenderer $response,
         Template $template,
-        string $db,
-        string $table,
         Maintenance $maintenance
     ) {
-        parent::__construct($response, $template, $db, $table);
+        parent::__construct($response, $template);
         $this->model = $maintenance;
     }
 
     public function __invoke(ServerRequest $request): void
     {
-        $dbParam = $request->getParam('db');
-        $tableParam = $request->getParam('table');
         $partitionName = $request->getParsedBodyParam('partition_name');
 
         try {
-            Assert::string($dbParam);
-            Assert::string($tableParam);
             Assert::stringNotEmpty($partitionName);
-            $database = DatabaseName::fromString($dbParam);
-            $table = TableName::fromString($tableParam);
-        } catch (InvalidArgumentException $exception) {
+            $database = DatabaseName::fromValue($request->getParam('db'));
+            $table = TableName::fromValue($request->getParam('table'));
+        } catch (InvalidIdentifierName | InvalidArgumentException $exception) {
             $message = Message::error($exception->getMessage());
             $this->response->addHTML($message->getDisplay());
 

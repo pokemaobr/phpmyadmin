@@ -5,13 +5,14 @@
         ]
     },
     "logs": {
-        "badge": {
-            "branch": "master"
+        "text": "build/logs/infection.log",
+        "stryker": {
+            "report": "master"
         }
     },
     "mutators": {
         "@default": true
     },
-    "minMsi": 31,
-    "minCoveredMsi": 61
+    "minMsi": 30,
+    "minCoveredMsi": 58
 }

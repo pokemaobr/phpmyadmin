@@ -152,12 +152,12 @@
                 {% endfor %}
               {% endif %}
 
-              {% if has_master_replication %}
-                <th>{% trans 'Master replication' %}</th>
+              {% if has_primary_replication %}
+                <th>{% trans 'Primary replication' %}</th>
               {% endif %}
 
-              {% if has_slave_replication %}
-                <th>{% trans 'Slave replication' %}</th>
+              {% if has_replica_replication %}
+                <th>{% trans 'Replica replication' %}</th>
               {% endif %}
 
               <th>{% trans 'Action' %}</th>
@@ -209,8 +209,8 @@
                   {% endfor %}
                 {% endif %}
 
-                {% if database.replication.master.status %}
-                  {% if database.replication.master.is_replicated %}
+                {% if database.replication.primary.status %}
+                  {% if database.replication.primary.is_replicated %}
                     <td class="tool text-center">
                       {{ get_icon('s_success', 'Replicated'|trans) }}
                     </td>
@@ -221,8 +221,8 @@
                   {% endif %}
                 {% endif %}
 
-                {% if database.replication.slave.status %}
-                  {% if database.replication.slave.is_replicated %}
+                {% if database.replication.replica.status %}
+                  {% if database.replication.replica.is_replicated %}
                     <td class="tool text-center">
                       {{ get_icon('s_success', 'Replicated'|trans) }}
                     </td>
@@ -235,7 +235,7 @@
 
                 <td class="tool">
                   <a class="server_databases" data="
-                    {{- database.name|js_format }}" href="{{ url('/server/privileges', {
+                    {{- database.name }}" href="{{ url('/server/privileges', {
                       'db': database.name,
                       'checkprivsdb': database.name
                     }) }}" title="
@@ -276,11 +276,11 @@
                 {% endfor %}
               {% endif %}
 
-              {% if has_master_replication %}
+              {% if has_primary_replication %}
                 <th></th>
               {% endif %}
 
-              {% if has_slave_replication %}
+              {% if has_replica_replication %}
                 <th></th>
               {% endif %}
 
@@ -297,7 +297,7 @@
           <div class="alert alert-info" role="alert">
             {{ get_icon('s_notice', 'Note: Enabling the database statistics here might cause heavy traffic between the web server and the MySQL server.'|trans) }}
           </div>
-          <a class="card-link" href="{{ url('/server/databases') }}" data-post="{{ get_common({'statistics': '1'}, '') }}" title="{% trans 'Enable statistics' %}">
+          <a class="card-link" href="{{ url('/server/databases') }}" data-post="{{ get_common({'statistics': '1'}, '', false) }}" title="{% trans 'Enable statistics' %}">
             {% trans 'Enable statistics' %}
           </a>
         </div>

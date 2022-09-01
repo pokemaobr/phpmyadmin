@@ -117,15 +117,13 @@ class Innodb extends StorageEngine
      */
     public function getPageBufferpool()
     {
-        global $dbi;
-
         // The following query is only possible because we know
         // that we are on MySQL 5 here (checked above)!
         // side note: I love MySQL 5 for this. :-)
         $sql = 'SHOW STATUS'
             . ' WHERE Variable_name LIKE \'Innodb\\_buffer\\_pool\\_%\''
             . ' OR Variable_name = \'Innodb_page_size\';';
-        $status = $dbi->fetchResult($sql, 0, 1);
+        $status = $GLOBALS['dbi']->fetchResult($sql, 0, 1);
 
         /** @var string[] $bytes */
         $bytes = Util::formatByteDown($status['Innodb_buffer_pool_pages_total'] * $status['Innodb_page_size']);
@@ -261,12 +259,9 @@ class Innodb extends StorageEngine
      */
     public function getPageStatus()
     {
-        global $dbi;
-
         return '<pre id="pre_innodb_status">' . "\n"
-            . htmlspecialchars((string) $dbi->fetchValue(
+            . htmlspecialchars((string) $GLOBALS['dbi']->fetchValue(
                 'SHOW ENGINE INNODB STATUS;',
-                0,
                 'Status'
             )) . "\n" . '</pre>' . "\n";
     }
@@ -289,9 +284,7 @@ class Innodb extends StorageEngine
      */
     public function getInnodbPluginVersion()
     {
-        global $dbi;
-
-        return $dbi->fetchValue('SELECT @@innodb_version;');
+        return $GLOBALS['dbi']->fetchValue('SELECT @@innodb_version;') ?: '';
     }
 
     /**
@@ -303,9 +296,7 @@ class Innodb extends StorageEngine
      */
     public function getInnodbFileFormat(): ?string
     {
-        global $dbi;
-
-        $value = $dbi->fetchValue("SHOW GLOBAL VARIABLES LIKE 'innodb_file_format';", 0, 1);
+        $value = $GLOBALS['dbi']->fetchValue("SHOW GLOBAL VARIABLES LIKE 'innodb_file_format';", 1);
 
         if ($value === false) {
             // This variable does not exist anymore on MariaDB >= 10.6.0
@@ -323,8 +314,6 @@ class Innodb extends StorageEngine
      */
     public function supportsFilePerTable(): bool
     {
-        global $dbi;
-
-        return $dbi->fetchValue("SHOW GLOBAL VARIABLES LIKE 'innodb_file_per_table';", 0, 1) === 'ON';
+        return $GLOBALS['dbi']->fetchValue("SHOW GLOBAL VARIABLES LIKE 'innodb_file_per_table';", 1) === 'ON';
     }
 }

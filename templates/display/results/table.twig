@@ -1,14 +1,89 @@
 {% set navigation_html %}
   {% if navigation is not empty %}
-    <table class="navigation print_ignore">
+    <table class="navigation d-print-none">
       <tr>
         <td class="navigation_separator"></td>
 
-        {{ navigation.move_backward_buttons|raw }}
-        {{ navigation.page_selector|raw }}
-        {{ navigation.move_forward_buttons|raw }}
+        {% if navigation.pos and not navigation.is_showing_all %}
+          <td>
+            <form action="{{ url('/sql') }}" method="post">
+              {{ get_hidden_inputs(db, table) }}
+              <input type="hidden" name="sql_query" value="{{ sql_query }}">
+              <input type="hidden" name="pos" value="0">
+              <input type="hidden" name="is_browse_distinct" value="{{ is_browse_distinct }}">
+              <input type="hidden" name="goto" value="{{ goto }}">
+              {% set begin_text %}
+                {{- show_icons('TableNavigationLinksMode') ? '<<' }}
+                {%- if show_text('TableNavigationLinksMode') -%}
+                  &nbsp;{% trans %}Begin{% context %}First page{% endtrans %}
+                {%- endif -%}
+              {% endset %}
+              <input type="submit" name="navig" class="btn btn-secondary ajax" value="{{ begin_text }}" title="{% trans %}Begin{% context %}First page{% endtrans %}">
+            </form>
+          </td>
 
-        {% if navigation.number_total_page > 1 %}
+          <td>
+            <form action="{{ url('/sql') }}" method="post">
+              {{ get_hidden_inputs(db, table) }}
+              <input type="hidden" name="sql_query" value="{{ sql_query }}">
+              <input type="hidden" name="pos" value="{{ navigation.pos_previous }}">
+              <input type="hidden" name="is_browse_distinct" value="{{ is_browse_distinct }}">
+              <input type="hidden" name="goto" value="{{ goto }}">
+              {% set previous_text %}
+                {{- show_icons('TableNavigationLinksMode') ? '<' }}
+                {%- if show_text('TableNavigationLinksMode') -%}
+                  &nbsp;{% trans %}Previous{% context %}Previous page{% endtrans %}
+                {%- endif -%}
+              {% endset %}
+              <input type="submit" name="navig" class="btn btn-secondary ajax" value="{{ previous_text }}" title="{% trans %}Previous{% context %}Previous page{% endtrans %}">
+            </form>
+          </td>
+        {% endif %}
+
+        {{ navigation.page_selector|raw }}
+
+        {% if not navigation.is_last_page %}
+          <td>
+            <form action="{{ url('/sql') }}" method="post">
+              {{ get_hidden_inputs(db, table) }}
+              <input type="hidden" name="sql_query" value="{{ sql_query }}">
+              <input type="hidden" name="pos" value="{{ navigation.pos_next }}">
+              <input type="hidden" name="is_browse_distinct" value="{{ is_browse_distinct }}">
+              <input type="hidden" name="goto" value="{{ goto }}">
+              {% set next_text %}
+                {%- if show_text('TableNavigationLinksMode') -%}
+                  {% trans %}Next{% context %}Next page{% endtrans %}&nbsp;
+                {%- endif -%}
+                {{ show_icons('TableNavigationLinksMode') ? '>' -}}
+              {% endset %}
+              <input type="submit" name="navig" class="btn btn-secondary ajax" value="{{ next_text }}" title="{% trans %}Next{% context %}Next page{% endtrans %}">
+            </form>
+          </td>
+
+          {% if navigation.is_last_page_known %}
+          <td>
+            <form action="{{ url('/sql') }}" method="post"{{ navigation.onsubmit|raw }}>
+              {{ get_hidden_inputs(db, table) }}
+              <input type="hidden" name="sql_query" value="{{ sql_query }}">
+              <input type="hidden" name="pos" value="{{ navigation.pos_last }}">
+              <input type="hidden" name="is_browse_distinct" value="{{ is_browse_distinct }}">
+              <input type="hidden" name="goto" value="{{ goto }}">
+              {% if navigation.has_real_end_input %}
+                <input id="real_end_input" type="hidden" name="find_real_end" value="1">
+              {% endif %}
+              {% set end_text %}
+                {%- if show_text('TableNavigationLinksMode') -%}
+                  {% trans %}End{% context %}Last page{% endtrans %}&nbsp;
+                {%- endif -%}
+                {{ show_icons('TableNavigationLinksMode') ? '>>' -}}
+              {% endset %}
+              <input type="submit" name="navig" class="btn btn-secondary ajax" value="{{ end_text }}" title="{% trans %}End{% context %}Last page{% endtrans %}">
+            </form>
+          </td>
+          {% endif %}
+        {% endif %}
+
+        {% if navigation.number_total_page != 1 %}
           <td><div class="navigation_separator">|</div></td>
         {% endif %}
 
@@ -65,7 +140,7 @@
         </td>
         <td class="largescreenonly">
           {% if navigation.sort_by_key is not empty %}
-            <form action="{{ url('/sql') }}" method="post" class="print_ignore">
+            <form action="{{ url('/sql') }}" method="post" class="d-print-none">
               {{ get_hidden_fields(navigation.sort_by_key.hidden_fields) }}
               {% trans 'Sort by key:' %}
               <select name="sql_query" class="autosubmit">
@@ -104,7 +179,7 @@
 {% endif %}
 
 {% if headers.options is not empty %}
-  <form method="post" action="{{ url('/sql') }}" name="displayOptionsForm" class="ajax print_ignore">
+  <form method="post" action="{{ url('/sql') }}" name="displayOptionsForm" class="ajax d-print-none">
     {{ get_hidden_inputs({
       'db': db,
       'table': table,
@@ -218,7 +293,7 @@
   </div>
 
 {% if bulk_links is not empty %}
-    <div class="print_ignore">
+    <div class="d-print-none">
       <img class="selectallarrow" src="{{ image('arrow_' ~ text_dir ~ '.png') }}" width="38" height="22" alt="{% trans 'With selected:' %}">
       <input type="checkbox" id="resultsForm_{{ unique_id }}_checkall" class="checkall_box" title="{% trans 'Check all' %}">
       <label for="resultsForm_{{ unique_id }}_checkall">{% trans 'Check all' %}</label>
@@ -251,54 +326,56 @@
 {{ navigation_html }}
 
 {% if operations is not empty %}
-  <fieldset class="pma-fieldset print_ignore">
-    <legend>{% trans 'Query results operations' %}</legend>
+  <div class="card mb-3 d-print-none">
+    <div class="card-header">{% trans 'Query results operations' %}</div>
 
-    {% if operations.has_print_link %}
-      {{ link_or_button(
-        '#',
-        get_icon('b_print', 'Print'|trans, true),
-        {'id': 'printView', 'class': 'btn'},
-        'print_view'
-      ) }}
-
-      {{ link_or_button(
-        '#',
-        get_icon('b_insrow', 'Copy to clipboard'|trans, true),
-        {'id': 'copyToClipBoard', 'class': 'btn'}
-      ) }}
-    {% endif %}
-
-    {% if not operations.has_procedure %}
-      {% if operations.has_export_link %}
-        {{ link_or_button(
-          url('/table/export', operations.url_params),
-          get_icon('b_tblexport', 'Export'|trans, true),
-          {'class': 'btn'}
-        ) }}
+    <div class="card-body">
+      {% if operations.has_print_link %}
+        <button type="button" class="btn btn-link jsPrintButton">{{ get_icon('b_print', 'Print'|trans, true) }}</button>
 
         {{ link_or_button(
-          url('/table/chart', operations.url_params),
-          get_icon('b_chart', 'Display chart'|trans, true),
-          {'class': 'btn'}
+          '#',
+          null,
+          get_icon('b_insrow', 'Copy to clipboard'|trans, true),
+          {'id': 'copyToClipBoard', 'class': 'btn'}
         ) }}
-
-        {% if operations.has_geometry %}
-          {{ link_or_button(
-            url('/table/gis-visualization', operations.url_params),
-            get_icon('b_globe', 'Visualize GIS data'|trans, true),
-            {'class': 'btn'}
-          ) }}
-        {% endif %}
       {% endif %}
 
-      <span>
-        {{ link_or_button(
-          url('/view/create', {'db': db, 'table': table, 'sql_query': sql_query, 'printview': true}),
-          get_icon('b_view_add', 'Create view'|trans, true),
-          {'class': 'btn create_view ajax'}
-        ) }}
-      </span>
-    {% endif %}
-  </fieldset>
+      {% if not operations.has_procedure %}
+        {% if operations.has_export_link %}
+          {{ link_or_button(
+            url('/table/export'),
+            operations.url_params,
+            get_icon('b_tblexport', 'Export'|trans, true),
+            {'class': 'btn'}
+          ) }}
+
+          {{ link_or_button(
+            url('/table/chart'),
+            operations.url_params,
+            get_icon('b_chart', 'Display chart'|trans, true),
+            {'class': 'btn'}
+          ) }}
+
+          {% if operations.has_geometry %}
+            {{ link_or_button(
+              url('/table/gis-visualization'),
+              operations.url_params,
+              get_icon('b_globe', 'Visualize GIS data'|trans, true),
+              {'class': 'btn'}
+            ) }}
+          {% endif %}
+        {% endif %}
+
+        <span>
+          {{ link_or_button(
+            url('/view/create'),
+            {'db': db, 'table': table, 'sql_query': sql_query, 'printview': true},
+            get_icon('b_view_add', 'Create view'|trans, true),
+            {'class': 'btn create_view ajax'}
+          ) }}
+        </span>
+      {% endif %}
+    </div>
+  </div>
 {% endif %}

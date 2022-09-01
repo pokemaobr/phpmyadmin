@@ -196,7 +196,7 @@ class CheckUserPrivileges
         $re0 = '(^|(\\\\\\\\)+|[^\\\\])'; // non-escaped wildcards
         $re1 = '(^|[^\\\\])(\\\)+'; // escaped wildcards
 
-        while ($row = $this->dbi->fetchRow($showGrantsResult)) {
+        while ($row = $showGrantsResult->fetchRow()) {
             [
                 $showGrantsString,
                 $showGrantsDbName,
@@ -263,7 +263,7 @@ class CheckUserPrivileges
                         $dbNameToTest
                     )
                 )
-                || mb_substr((string) $this->dbi->getError(), 1, 4) == 1044)
+                || mb_substr($this->dbi->getError(), 1, 4) == 1044)
             ) {
                 continue;
             }
@@ -283,8 +283,6 @@ class CheckUserPrivileges
              // we don't break, we want all possible databases
              //break;
         }
-
-        $this->dbi->freeResult($showGrantsResult);
 
         // must also cacheUnset() them in
         // PhpMyAdmin\Plugins\Auth\AuthenticationCookie

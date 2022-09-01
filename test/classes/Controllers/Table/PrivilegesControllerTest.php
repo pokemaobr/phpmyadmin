@@ -31,13 +31,11 @@ class PrivilegesControllerTest extends AbstractTestCase
 
     public function testIndex(): void
     {
-        global $dbi, $db, $table, $server, $cfg, $PMA_PHP_SELF;
-
-        $db = 'db';
-        $table = 'table';
-        $server = 0;
-        $cfg['Server']['DisableIS'] = false;
-        $PMA_PHP_SELF = 'index.php';
+        $GLOBALS['db'] = 'db';
+        $GLOBALS['table'] = 'table';
+        $GLOBALS['server'] = 0;
+        $GLOBALS['cfg']['Server']['DisableIS'] = false;
+        $GLOBALS['PMA_PHP_SELF'] = 'index.php';
 
         $privileges = [];
 
@@ -48,18 +46,16 @@ class PrivilegesControllerTest extends AbstractTestCase
         $actual = (new PrivilegesController(
             ResponseRenderer::getInstance(),
             new Template(),
-            $db,
-            $table,
             $serverPrivileges,
-            $dbi
-        ))(['checkprivsdb' => $db, 'checkprivstable' => $table]);
+            $GLOBALS['dbi']
+        ))(['checkprivsdb' => $GLOBALS['db'], 'checkprivstable' => $GLOBALS['table']]);
 
-        $this->assertStringContainsString($db . '.' . $table, $actual);
+        $this->assertStringContainsString($GLOBALS['db'] . '.' . $GLOBALS['table'], $actual);
 
         //validate 2: Url::getCommon
         $item = Url::getCommon([
-            'db' => $db,
-            'table' => $table,
+            'db' => $GLOBALS['db'],
+            'table' => $GLOBALS['table'],
         ], '');
         $this->assertStringContainsString($item, $actual);
 
@@ -100,8 +96,8 @@ class PrivilegesControllerTest extends AbstractTestCase
         );
         $this->assertStringContainsString(
             Url::getCommon([
-                'checkprivsdb' => $db,
-                'checkprivstable' => $table,
+                'checkprivsdb' => $GLOBALS['db'],
+                'checkprivstable' => $GLOBALS['table'],
             ]),
             $actual
         );

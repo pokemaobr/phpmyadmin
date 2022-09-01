@@ -7,10 +7,10 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Database;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Html\Generator;
 use PhpMyAdmin\Message;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\SavedSearches;
 use PhpMyAdmin\Table;
 use PhpMyAdmin\Template;
@@ -48,190 +48,163 @@ class Qbe
     /**
      * Database name
      *
-     * @access private
      * @var string
      */
     private $db;
     /**
      * Table Names (selected/non-selected)
      *
-     * @access private
      * @var array
      */
     private $criteriaTables;
     /**
      * Column Names
      *
-     * @access private
      * @var array
      */
     private $columnNames;
     /**
      * Number of columns
      *
-     * @access private
      * @var int
      */
     private $criteriaColumnCount;
     /**
      * Number of Rows
      *
-     * @access private
      * @var int
      */
     private $criteriaRowCount;
     /**
      * Whether to insert a new column
      *
-     * @access private
      * @var array|null
      */
     private $criteriaColumnInsert;
     /**
      * Whether to delete a column
      *
-     * @access private
      * @var array|null
      */
     private $criteriaColumnDelete;
     /**
      * Whether to insert a new row
      *
-     * @access private
      * @var array
      */
     private $criteriaRowInsert;
     /**
      * Whether to delete a row
      *
-     * @access private
      * @var array
      */
     private $criteriaRowDelete;
     /**
      * Already set criteria values
      *
-     * @access private
      * @var array
      */
     private $criteria;
     /**
      * Previously set criteria values
      *
-     * @access private
      * @var array
      */
     private $prevCriteria;
     /**
      * AND/OR relation b/w criteria columns
      *
-     * @access private
      * @var array
      */
     private $criteriaAndOrColumn;
     /**
      * AND/OR relation b/w criteria rows
      *
-     * @access private
      * @var array
      */
     private $criteriaAndOrRow;
     /**
      * Large width of a column
      *
-     * @access private
      * @var string
      */
     private $realwidth;
     /**
      * Minimum width of a column
      *
-     * @access private
      * @var int
      */
     private $formColumnWidth;
     /**
      * Selected columns in the form
      *
-     * @access private
      * @var array
      */
     private $formColumns;
     /**
      * Entered aliases in the form
      *
-     * @access private
      * @var array
      */
     private $formAliases;
     /**
      * Chosen sort options in the form
      *
-     * @access private
      * @var array
      */
     private $formSorts;
     /**
      * Chosen sort orders in the form
      *
-     * @access private
      * @var array
      */
     private $formSortOrders;
     /**
      * Show checkboxes in the form
      *
-     * @access private
      * @var array
      */
     private $formShows;
     /**
      * Entered criteria values in the form
      *
-     * @access private
      * @var array
      */
     private $formCriterions;
     /**
      * AND/OR column radio buttons in the form
      *
-     * @access private
      * @var array
      */
     private $formAndOrCols;
     /**
      * AND/OR row radio buttons in the form
      *
-     * @access private
      * @var array
      */
     private $formAndOrRows;
     /**
      * New column count in case of add/delete
      *
-     * @access private
      * @var int
      */
     private $newColumnCount;
     /**
      * New row count in case of add/delete
      *
-     * @access private
      * @var int
      */
     private $newRowCount;
     /**
      * List of saved searches
      *
-     * @access private
      * @var array
      */
     private $savedSearchList = null;
     /**
      * Current search
      *
-     * @access private
-     * @var SavedSearches
+     * @var SavedSearches|null
      */
     private $currentSearch = null;
 
@@ -245,12 +218,12 @@ class Qbe
     public $template;
 
     /**
-     * @param Relation          $relation        Relation object
-     * @param Template          $template        Template object
-     * @param DatabaseInterface $dbi             DatabaseInterface object
-     * @param string            $dbname          Database name
-     * @param array             $savedSearchList List of saved searches
-     * @param SavedSearches     $currentSearch   Current search id
+     * @param Relation           $relation        Relation object
+     * @param Template           $template        Template object
+     * @param DatabaseInterface  $dbi             DatabaseInterface object
+     * @param string             $dbname          Database name
+     * @param array              $savedSearchList List of saved searches
+     * @param SavedSearches|null $currentSearch   Current search id
      */
     public function __construct(
         Relation $relation,
@@ -293,7 +266,7 @@ class Qbe
     /**
      * Getter for current search
      *
-     * @return SavedSearches
+     * @return SavedSearches|null
      */
     private function getCurrentSearch()
     {
@@ -343,19 +316,15 @@ class Qbe
             }
         }
 
-        $allTables = $this->dbi->query(
-            'SHOW TABLES FROM ' . Util::backquote($this->db) . ';',
-            DatabaseInterface::CONNECT_USER,
-            DatabaseInterface::QUERY_STORE
-        );
-        $allTablesCount = $this->dbi->numRows($allTables);
+        $allTables = $this->dbi->query('SHOW TABLES FROM ' . Util::backquote($this->db) . ';');
+        $allTablesCount = $allTables->numRows();
         if ($allTablesCount == 0) {
             echo Message::error(__('No tables found in database.'))->getDisplay();
             exit;
         }
 
         // The tables list gets from MySQL
-        while ([$table] = $this->dbi->fetchRow($allTables)) {
+        foreach ($allTables->fetchAllColumn() as $table) {
             $columns = $this->dbi->getColumns($this->db, $table);
 
             if (empty($this->criteriaTables[$table]) && ! empty($_POST['TableList'])) {
@@ -382,8 +351,6 @@ class Qbe
                 );
             }
         }
-
-        $this->dbi->freeResult($allTables);
 
         // sets the largest width found
         $this->realwidth = $this->formColumnWidth . 'ex';
@@ -1477,7 +1444,7 @@ class Qbe
             // having relationships with unfinalized tables
             foreach ($unfinalized as $oneTable) {
                 $references = $this->relation->getChildReferences($this->db, $oneTable);
-                foreach ($references as $column => $columnReferences) {
+                foreach ($references as $columnReferences) {
                     foreach ($columnReferences as $reference) {
                         // Only from this schema
                         if ($reference['table_schema'] != $this->db) {
@@ -1653,9 +1620,10 @@ class Qbe
 
     public function getSelectionForm(): string
     {
-        global $cfgRelation;
-
-        $savedSearchesField = $cfgRelation['savedsearcheswork'] ? $this->getSavedSearchesField() : '';
+        $relationParameters = $this->relation->getRelationParameters();
+        $savedSearchesField = $relationParameters->savedQueryByExampleSearchesFeature !== null
+            ? $this->getSavedSearchesField()
+            : '';
 
         $columnNamesRow = $this->getColumnNamesRow();
         $columnAliasRow = $this->getColumnAliasRow();
@@ -1710,7 +1678,7 @@ class Qbe
         $currentSearch = $this->getCurrentSearch();
         $currentSearchId = null;
         $currentSearchName = null;
-        if ($currentSearch != null) {
+        if ($currentSearch !== null) {
             $currentSearchId = $currentSearch->getId();
             $currentSearchName = $currentSearch->getSearchName();
         }

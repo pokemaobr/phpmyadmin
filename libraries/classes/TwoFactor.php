@@ -8,12 +8,13 @@ declare(strict_types=1);
 namespace PhpMyAdmin;
 
 use BaconQrCode\Renderer\ImageRenderer;
+use CodeLts\U2F\U2FServer\U2FServer;
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Plugins\TwoFactor\Application;
 use PhpMyAdmin\Plugins\TwoFactor\Invalid;
 use PhpMyAdmin\Plugins\TwoFactor\Key;
 use PhpMyAdmin\Plugins\TwoFactorPlugin;
 use PragmaRX\Google2FAQRCode\Google2FA;
-use Samyoul\U2F\U2FServer\U2FServer;
 
 use function array_merge;
 use function class_exists;
@@ -50,9 +51,7 @@ class TwoFactor
      */
     public function __construct($user)
     {
-        global $dbi;
-
-        $dbi->initRelationParamsCache();
+        (new Relation($GLOBALS['dbi']))->initRelationParamsCache();
 
         $this->userPreferences = new UserPreferences();
         $this->user = $user;
@@ -160,7 +159,7 @@ class TwoFactor
         if (! class_exists(U2FServer::class)) {
             $result[] = [
                 'class' => Key::getName(),
-                'dep' => 'samyoul/u2f-php-server',
+                'dep' => 'code-lts/u2f-php-server',
             ];
         }
 

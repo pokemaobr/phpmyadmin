@@ -28,8 +28,6 @@ class IndexesControllerTest extends AbstractTestCase
 {
     /**
      * Setup function for test cases
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
@@ -109,8 +107,6 @@ class IndexesControllerTest extends AbstractTestCase
         $ctrl = new IndexesController(
             $response,
             $template,
-            $GLOBALS['db'],
-            $GLOBALS['table'],
             $GLOBALS['dbi'],
             new Indexes($response, $template, $GLOBALS['dbi'])
         );

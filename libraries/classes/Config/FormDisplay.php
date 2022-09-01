@@ -182,7 +182,6 @@ class FormDisplay
         $paths = [];
         $values = [];
         foreach ($this->forms as $form) {
-            /** @var Form $form */
             $paths[] = $form->name;
             // collect values and paths
             foreach ($form->fields as $path) {
@@ -248,7 +247,6 @@ class FormDisplay
         // validate only when we aren't displaying a "new server" form
         $isNewServer = false;
         foreach ($this->forms as $form) {
-            /** @var Form $form */
             if ($form->index === 0) {
                 $isNewServer = true;
                 break;
@@ -538,7 +536,7 @@ class FormDisplay
         $valueCmp = is_bool($value)
             ? (int) $value
             : $value;
-        foreach ($allowed as $vk => $v) {
+        foreach (array_keys($allowed) as $vk) {
             // equality comparison only if both values are numeric or not numeric
             // (allows to skip 0 == 'string' equalling to true)
             // or identity (for string-string)
@@ -583,7 +581,6 @@ class FormDisplay
                 continue;
             }
 
-            /** @var Form $form */
             $form = $this->forms[$formName];
             // get current server id
             $changeIndex = $form->index === 0

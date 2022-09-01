@@ -43,17 +43,15 @@ class TransformationPluginsTest extends AbstractTestCase
     /**
      * Sets up the fixture, for example, opens a network connection.
      * This method is called before a test is executed.
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
         parent::setUp();
         parent::setLanguage();
         // For Application Octetstream Download plugin
-        global $row, $fields_meta;
-        $fields_meta = [];
-        $row = [
+
+        $GLOBALS['fields_meta'] = [];
+        $GLOBALS['row'] = [
             'pma' => 'aaa',
             'pca' => 'bbb',
         ];
@@ -71,6 +69,8 @@ class TransformationPluginsTest extends AbstractTestCase
      */
     public function multiDataProvider(): array
     {
+        $GLOBALS['cfg']['CodemirrorEnable'] = false;
+
         return [
             // Test data for PhpMyAdmin\Plugins\Transformations\Input\Image_JPEG_Upload plugin
             [
@@ -728,6 +728,8 @@ class TransformationPluginsTest extends AbstractTestCase
      */
     public function transformationDataProvider(): array
     {
+        $GLOBALS['cfg']['CodemirrorEnable'] = false;
+
         $result = [
             [
                 new Image_JPEG_Upload(),

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests;
 
-use PhpMyAdmin\Relation;
+use PhpMyAdmin\ConfigStorage\Relation;
+use PhpMyAdmin\ConfigStorage\RelationParameters;
 use PhpMyAdmin\SqlQueryForm;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Tracking;
 use PhpMyAdmin\Url;
-use PhpMyAdmin\Version;
 
 use function __;
 use function _pgettext;
@@ -26,8 +26,6 @@ class TrackingTest extends AbstractTestCase
 
     /**
      * Setup function for test cases
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
@@ -43,12 +41,12 @@ class TrackingTest extends AbstractTestCase
         $GLOBALS['cfg']['Server']['DisableIS'] = true;
         $GLOBALS['cfg']['Server']['tracking_default_statements'] = 'DELETE';
 
-        $_SESSION['relation'][$GLOBALS['server']] = [
-            'version' => Version::VERSION,
+        $_SESSION['relation'] = [];
+        $_SESSION['relation'][$GLOBALS['server']] = RelationParameters::fromArray([
             'db' => 'pmadb',
             'tracking' => 'tracking',
             'trackingwork' => true,
-        ];
+        ])->toArray();
 
         $template = new Template();
         $this->tracking = new Tracking(
@@ -145,9 +143,10 @@ class TrackingTest extends AbstractTestCase
     public function testGetTableLastVersionNumber(): void
     {
         $sql_result = $this->tracking->getSqlResultForSelectableTables('PMA_db');
-        $last_version = $this->tracking->getTableLastVersionNumber($sql_result);
+        $this->assertNotFalse($sql_result);
 
-        $this->assertEquals('10', $last_version);
+        $last_version = $this->tracking->getTableLastVersionNumber($sql_result);
+        $this->assertSame(10, $last_version);
     }
 
     /**

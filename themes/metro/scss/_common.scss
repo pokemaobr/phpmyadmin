@@ -367,6 +367,19 @@ div.null_div {
   text-align: center;
   font-style: normal;
   min-width: 50px;
+
+  label {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+
+    input {
+      cursor: pointer;
+    }
+  }
 }
 
 .pma-fieldset {
@@ -810,6 +823,7 @@ table#chartGrid {
 
   div.monitorChart {
     background: $th-background;
+    min-width: 1px;
   }
 }
 
@@ -1025,15 +1039,6 @@ li {
   float: left;
 }
 
-label.desc {
-  width: 30em;
-  float: left;
-
-  sup {
-    position: absolute;
-  }
-}
-
 kbd {
   color: $main-color;
   background-color: transparent;
@@ -1183,150 +1188,6 @@ input {
   width: 100%;
 }
 
-/**
-  * Export and Import styles
-  */
-
-.export_table_list_container {
-  display: inline-block;
-  max-height: 20em;
-  overflow-y: scroll;
-}
-
-.export_table_select {
-  th {
-    text-align: center;
-    vertical-align: middle;
-  }
-
-  .all {
-    font-weight: bold;
-    border-bottom: 1px solid black;
-  }
-}
-
-.export_structure,
-.export_data {
-  text-align: center;
-}
-
-.export_table_name {
-  vertical-align: middle;
-}
-
-.exportoptions h3,
-.importoptions h3 {
-  border-bottom: 1px #ccc solid;
-  font-size: 110%;
-}
-
-.exportoptions ul,
-.importoptions ul,
-.format_specific_options ul {
-  list-style-type: none;
-  margin-bottom: 15px;
-}
-
-.exportoptions li,
-.importoptions li {
-  margin: 7px;
-}
-
-.exportoptions label,
-.importoptions label,
-.exportoptions p,
-.importoptions p {
-  margin: 5px;
-  float: none;
-}
-
-#csv_options label.desc,
-#ldi_options label.desc,
-#latex_options label.desc,
-#output label.desc {
-  float: left;
-  width: 15em;
-}
-
-.exportoptions,
-.importoptions {
-  margin: 20px 30px 30px;
-  margin-left: 10px;
-}
-
-.exportoptions #buttonGo,
-.importoptions #buttonGo {
-  padding: 5px 12px;
-  text-decoration: none;
-  cursor: pointer;
-  margin: 0;
-}
-
-.format_specific_options {
-  border: 1px solid #999;
-  margin: 7px 0;
-  padding: 3px;
-
-  h3 {
-    margin: 10px 0 0;
-    margin-left: 10px;
-    border: 0;
-  }
-}
-
-p.desc {
-  margin: 5px;
-}
-
-/**
-  * Export styles only
-  */
-select {
-  &#db_select,
-  &#table_select {
-    width: 400px;
-  }
-}
-
-.export_sub_options {
-  margin: 20px 0 0;
-  margin-left: 30px;
-
-  h4 {
-    border-bottom: 1px #999 solid;
-  }
-
-  li {
-    margin-bottom: 0;
-
-    &.subgroup {
-      display: inline-block;
-      margin-top: 0;
-    }
-  }
-}
-
-#output_quick_export {
-  display: none;
-}
-
-/**
- * Import styles only
- */
-
-.importoptions #import_notification {
-  margin: 10px 0;
-  font-style: italic;
-}
-
-input#input_import_file {
-  margin: 5px;
-}
-
-.formelementrow {
-  margin: 5px 0 5px 0;
-}
-
 #popup_background {
   display: none;
   position: fixed;
@@ -1337,30 +1198,6 @@ input#input_import_file {
   background: #000;
   z-index: 1000;
   overflow: hidden;
-}
-
-/**
- * Table structure styles
- */
-#fieldsForm ul.table-structure-actions {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  li {
-    float: left;
-    margin-right: 0.3em;
-  }
-
-  .submenu li {
-    padding: 0;
-    margin: 0;
-
-    span {
-      padding: 0.3em;
-      margin: 0.1em;
-    }
-  }
 }
 
 #tablestructure tbody label {
@@ -1607,10 +1444,6 @@ form {
     background: none;
     border: none;
   }
-}
-
-#create_table_form_minimal {
-  display: block;
 }
 
 #db_or_table_specific_priv .tblFooters {
@@ -1877,12 +1710,6 @@ form.append_fields_form .tblFooters {
   }
 }
 
-.sticky {
-  position: -webkit-sticky;
-  position: sticky;
-  top: 60px;
-}
-
 .pma_table {
   td {
     position: static;
@@ -1975,6 +1802,8 @@ form.append_fields_form .tblFooters {
   position: absolute;
   margin-left: 75%;
   right: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
 
   .lDiv div {
     padding: 0.2em 0.5em 0.2em;
@@ -3018,12 +2847,6 @@ body {
   .pma-fieldset.tblFooters,
   .tblFooters {
     text-align: left;
-  }
-}
-
-@media only screen and (max-width: 768px) {
-  .sticky {
-    top: 0;
   }
 }
 

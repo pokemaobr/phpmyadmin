@@ -710,7 +710,7 @@ Functions.confirmQuery = function (theForm1, sqlQuery1) {
         doConfirmRegExp4.test(sqlQuery1)) {
         var message;
         if (sqlQuery1.length > 100) {
-            message = sqlQuery1.substr(0, 100) + '\n    ...';
+            message = sqlQuery1.substring(0, 100) + '\n    ...';
         } else {
             message = sqlQuery1;
         }
@@ -1187,6 +1187,9 @@ Functions.insertQuery = function (queryType) {
                         codeMirrorEditor.setValue(data.sql);
                     }
                     $('#querymessage').html('');
+                },
+                error: function () {
+                    $('#querymessage').html('');
                 }
             });
         }
@@ -1371,8 +1374,8 @@ Functions.getJsConfirmCommonParam = function (elem, parameters) {
     var sep = CommonParams.get('arg_separator');
     if (params) {
         // Strip possible leading ?
-        if (params.substring(0,1) === '?') {
-            params = params.substr(1);
+        if (params.startsWith('?')) {
+            params = params.substring(1);
         }
         params += sep;
     } else {
@@ -1844,7 +1847,7 @@ Functions.ajaxShowMessage = function (message, timeout, type) {
         selfClosing = false;
     }
     // Figure out whether (or after how long) to remove the notification
-    if (newTimeOut === undefined) {
+    if (newTimeOut === undefined || newTimeOut === null) {
         newTimeOut = 5000;
     } else if (newTimeOut === false) {
         selfClosing = false;
@@ -2391,40 +2394,16 @@ Functions.confirm = function (question, url, callbackFn, openCallback) {
         return true;
     }
 
-    /**
-     * @var button_options Object that stores the options passed to jQueryUI
-     *                     dialog
-     */
-    var buttonOptions = [
-        {
-            text: Messages.strOK,
-            'class': 'submitOK',
-            click: function () {
-                $(this).dialog('close');
-                if (typeof callbackFn === 'function') {
-                    callbackFn.call(this, url);
-                }
-            }
-        },
-        {
-            text: Messages.strCancel,
-            'class': 'submitCancel',
-            click: function () {
-                $(this).dialog('close');
-            }
+    $('#functionConfirmModal').modal('show');
+    $('#functionConfirmModal').find('.modal-body').first().html(question);
+    $('#functionConfirmOkButton').on('click', function () {
+        if (typeof callbackFn === 'function') {
+            callbackFn.call(this, url);
         }
-    ];
-
-    $('<div></div>', { 'id': 'confirm_dialog', 'title': Messages.strConfirm })
-        .prepend(question)
-        .dialog({
-            buttons: buttonOptions,
-            close: function () {
-                $(this).remove();
-            },
-            open: openCallback,
-            modal: true
-        });
+    });
+    if (typeof openCallback === 'function') {
+        openCallback();
+    }
 };
 jQuery.fn.confirm = Functions.confirm;
 
@@ -2475,7 +2454,6 @@ jQuery.fn.sortTable = Functions.sortTable;
  * Unbind all event handlers before tearing down a page
  */
 AJAX.registerTeardown('functions.js', function () {
-    $(document).off('submit', '#create_table_form_minimal.ajax');
     $(document).off('submit', 'form.create_table_form.ajax');
     $(document).off('click', 'form.create_table_form.ajax input[name=submit_num_fields]');
     $(document).off('keyup', 'form.create_table_form.ajax input');
@@ -2787,11 +2765,7 @@ AJAX.registerOnload('functions.js', function () {
 
         var $msgbox = Functions.ajaxShowMessage();
 
-        /**
-         * @var button_options  Object containing options to be passed to jQueryUI's dialog
-         */
-        var buttonOptions = {};
-        buttonOptions[Messages.strGo] = function () {
+        $('#changePasswordGoButton').on('click', function () {
             event.preventDefault();
 
             /**
@@ -2826,11 +2800,9 @@ AJAX.registerOnload('functions.js', function () {
                 $('#edit_user_dialog').dialog('close').remove();
                 Functions.ajaxRemoveMessage($msgbox);
             }); // end $.post()
-        };
+            $('#changePasswordModal').modal('hide');
+        });
 
-        buttonOptions[Messages.strCancel] = function () {
-            $(this).dialog('close');
-        };
         $.get($(this).attr('href'), { 'ajax_request': true }, function (data) {
             if (typeof data === 'undefined' || !data.success) {
                 Functions.ajaxShowMessage(data.error, false);
@@ -2841,18 +2813,9 @@ AJAX.registerOnload('functions.js', function () {
                 AJAX.scriptHandler.load(data.scripts);
             }
 
-            $('<div id="change_password_dialog"></div>')
-                .dialog({
-                    title: Messages.strChangePassword,
-                    width: 600,
-                    close: function () {
-                        $(this).remove();
-                    },
-                    buttons: buttonOptions,
-                    modal: true
-                })
-                .append(data.message);
             // for this dialog, we remove the fieldset wrapping due to double headings
+            $('#changePasswordModal').modal('show');
+            $('#changePasswordModal').find('.modal-body').first().html(data.message);
             $('fieldset#fieldset_change_password')
                 .find('legend').remove().end()
                 .find('table.table').unwrap().addClass('m-3')
@@ -3527,6 +3490,7 @@ AJAX.registerOnload('functions.js', function () {
 
 Functions.mainMenuResizerCallback = function () {
     // 5 px margin for jumping menu in Chrome
+    // eslint-disable-next-line compat/compat
     return $(document.body).width() - 5;
 };
 
@@ -3925,11 +3889,6 @@ Functions.getCellValue = function (td) {
     }
 };
 
-$(window).on('popstate', function () {
-    $('#printcss').attr('media','print');
-    return true;
-});
-
 /**
  * Unbind all event handlers before tearing down a page
  */
@@ -3947,49 +3906,10 @@ AJAX.registerOnload('functions.js', function () {
 });
 
 /**
- * Produce print preview
+ * @implements EventListener
  */
-Functions.printPreview = function () {
-    $('#printcss').attr('media','all');
-    Functions.createPrintAndBackButtons();
-};
-
-/**
- * Create print and back buttons in preview page
- */
-Functions.createPrintAndBackButtons = function () {
-    var backButton = $('<input>',{
-        type: 'button',
-        value: Messages.back,
-        class: 'btn btn-secondary',
-        id: 'back_button_print_view'
-    });
-    backButton.on('click', Functions.removePrintAndBackButton);
-    backButton.appendTo('#page_content');
-    var printButton = $('<input>',{
-        type: 'button',
-        value: Messages.print,
-        class: 'btn btn-primary',
-        id: 'print_button_print_view'
-    });
-    printButton.on('click', Functions.printPage);
-    printButton.appendTo('#page_content');
-};
-
-/**
- * Remove print and back buttons and revert to normal view
- */
-Functions.removePrintAndBackButton = function () {
-    $('#printcss').attr('media','print');
-    $('#back_button_print_view').remove();
-    $('#print_button_print_view').remove();
-};
-
-/**
- * Print page
- */
-Functions.printPage = function () {
-    if (typeof(window.print) !== 'undefined') {
+const PrintPage = {
+    handleEvent: () => {
         window.print();
     }
 };
@@ -3998,14 +3918,20 @@ Functions.printPage = function () {
  * Unbind all event handlers before tearing down a page
  */
 AJAX.registerTeardown('functions.js', function () {
-    $('input#print').off('click');
+    document.querySelectorAll('.jsPrintButton').forEach(item => {
+        item.removeEventListener('click', PrintPage);
+    });
+
     $(document).off('click', 'a.create_view.ajax');
-    $(document).off('keydown', '#createViewDialog input, #createViewDialog select');
+    $(document).off('keydown', '#createViewModal input, #createViewModal select');
     $(document).off('change', '#fkc_checkbox');
 });
 
 AJAX.registerOnload('functions.js', function () {
-    $('input#print').on('click', Functions.printPage);
+    document.querySelectorAll('.jsPrintButton').forEach(item => {
+        item.addEventListener('click', PrintPage);
+    });
+
     $('.logout').on('click', function () {
         var form = $(
             '<form method="POST" action="' + $(this).attr('href') + '" class="disableAjax">' +
@@ -4022,14 +3948,14 @@ AJAX.registerOnload('functions.js', function () {
      */
     $(document).on('click', 'a.create_view.ajax', function (e) {
         e.preventDefault();
-        Functions.createViewDialog($(this));
+        Functions.createViewModal($(this));
     });
     /**
      * Attach Ajax event handlers for input fields in the editor
      * and used to submit the Ajax request when the ENTER key is pressed.
      */
-    if ($('#createViewDialog').length !== 0) {
-        $(document).on('keydown', '#createViewDialog input, #createViewDialog select', function (e) {
+    if ($('#createViewModal').length !== 0) {
+        $(document).on('keydown', '#createViewModal input, #createViewModal select', function (e) {
             if (e.which === 13) { // 13 is the ENTER key
                 e.preventDefault();
 
@@ -4047,7 +3973,7 @@ AJAX.registerOnload('functions.js', function () {
     }
 });
 
-Functions.createViewDialog = function ($this) {
+Functions.createViewModal = function ($this) {
     var $msg = Functions.ajaxShowMessage();
     var sep = CommonParams.get('arg_separator');
     var params = Functions.getJsConfirmCommonParam(this, $this.getPostData());
@@ -4055,40 +3981,30 @@ Functions.createViewDialog = function ($this) {
     $.post($this.attr('href'), params, function (data) {
         if (typeof data !== 'undefined' && data.success === true) {
             Functions.ajaxRemoveMessage($msg);
-            var buttonOptions = {};
-            buttonOptions[Messages.strGo] = function () {
+            $('#createViewModalGoButton').on('click', function () {
                 if (typeof CodeMirror !== 'undefined') {
                     codeMirrorEditor.save();
                 }
                 $msg = Functions.ajaxShowMessage();
-                $.post('index.php?route=/view/create', $('#createViewDialog').find('form').serialize(), function (data) {
+                $.post('index.php?route=/view/create', $('#createViewModal').find('form').serialize(), function (data) {
                     Functions.ajaxRemoveMessage($msg);
                     if (typeof data !== 'undefined' && data.success === true) {
-                        $('#createViewDialog').dialog('close');
+                        $('#createViewModal').modal('hide');
                         $('.result_query').html(data.message);
                         Navigation.reload();
                     } else {
                         Functions.ajaxShowMessage(data.error);
                     }
                 });
-            };
-            buttonOptions[Messages.strClose] = function () {
-                $(this).dialog('close');
-            };
-            var $dialog = $('<div></div>').attr('id', 'createViewDialog').append(data.message).dialog({
-                width: 600,
-                minWidth: 400,
-                height: $(window).height(),
-                modal: true,
-                buttons: buttonOptions,
-                title: Messages.strCreateView,
-                close: function () {
-                    $(this).remove();
-                }
             });
+            $('#createViewModal').find('.modal-body').first().html(data.message);
             // Attach syntax highlighted editor
-            codeMirrorEditor = Functions.getSqlEditor($dialog.find('textarea'));
-            $('input:visible[type=text]', $dialog).first().trigger('focus');
+            $('#createViewModal').on('shown.bs.modal', function () {
+                codeMirrorEditor = Functions.getSqlEditor($('#createViewModal').find('textarea'));
+                $('input:visible[type=text]', $('#createViewModal')).first().trigger('focus');
+                $('#createViewModal').off('shown.bs.modal');
+            });
+            $('#createViewModal').modal('show');
         } else {
             Functions.ajaxShowMessage(data.error);
         }
@@ -4635,8 +4551,8 @@ Functions.configGet = function (key, cached, successCallback) {
 Functions.getPostData = function () {
     var dataPost = this.attr('data-post');
     // Strip possible leading ?
-    if (dataPost !== undefined && dataPost.substring(0,1) === '?') {
-        dataPost = dataPost.substr(1);
+    if (dataPost !== undefined && dataPost.startsWith('?')) {
+        dataPost = dataPost.substring(1);
     }
     return dataPost;
 };

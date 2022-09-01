@@ -117,22 +117,16 @@ class Linter
 
         /**
          * Lexer used for tokenizing the query.
-         *
-         * @var Lexer
          */
         $lexer = new Lexer($query);
 
         /**
          * Parsed used for analysing the query.
-         *
-         * @var Parser
          */
         $parser = new Parser($lexer->list);
 
         /**
          * Array containing all errors.
-         *
-         * @var array
          */
         $errors = ParserError::get([$lexer, $parser]);
 
@@ -148,13 +142,11 @@ class Linter
          *
          * CodeMirror requires relative position to line, but the parser stores
          * only the absolute position of the character in string.
-         *
-         * @var array
          */
         $lines = static::getLines($query);
 
         // Building the response.
-        foreach ($errors as $idx => $error) {
+        foreach ($errors as $error) {
             // Starting position of the string that caused the error.
             [$fromLine, $fromColumn] = static::findLineNumberAndColumn($lines, $error[3]);
 

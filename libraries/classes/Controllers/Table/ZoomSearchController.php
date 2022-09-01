@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Table;
 
+use PhpMyAdmin\ConfigStorage\Relation;
+use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\Core;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\DbTableExists;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Table\Search;
 use PhpMyAdmin\Template;
@@ -16,6 +17,7 @@ use PhpMyAdmin\Util;
 use PhpMyAdmin\Utils\Gis;
 
 use function array_search;
+use function array_values;
 use function count;
 use function htmlspecialchars;
 use function in_array;
@@ -71,13 +73,11 @@ class ZoomSearchController extends AbstractController
     public function __construct(
         ResponseRenderer $response,
         Template $template,
-        string $db,
-        string $table,
         Search $search,
         Relation $relation,
         DatabaseInterface $dbi
     ) {
-        parent::__construct($response, $template, $db, $table);
+        parent::__construct($response, $template);
         $this->search = $search;
         $this->relation = $relation;
         $this->dbi = $dbi;
@@ -94,18 +94,18 @@ class ZoomSearchController extends AbstractController
 
     public function __invoke(): void
     {
-        global $goto, $db, $table, $urlParams, $cfg, $errorUrl;
+        $GLOBALS['goto'] = $GLOBALS['goto'] ?? null;
+        $GLOBALS['urlParams'] = $GLOBALS['urlParams'] ?? null;
+        $GLOBALS['errorUrl'] = $GLOBALS['errorUrl'] ?? null;
+        $this->checkParameters(['db', 'table']);
 
-        Util::checkParameters(['db', 'table']);
+        $GLOBALS['urlParams'] = ['db' => $GLOBALS['db'], 'table' => $GLOBALS['table']];
+        $GLOBALS['errorUrl'] = Util::getScriptNameForOption($GLOBALS['cfg']['DefaultTabTable'], 'table');
+        $GLOBALS['errorUrl'] .= Url::getCommon($GLOBALS['urlParams'], '&');
 
-        $urlParams = ['db' => $db, 'table' => $table];
-        $errorUrl = Util::getScriptNameForOption($cfg['DefaultTabTable'], 'table');
-        $errorUrl .= Url::getCommon($urlParams, '&');
-
-        DbTableExists::check();
+        DbTableExists::check($GLOBALS['db'], $GLOBALS['table']);
 
         $this->addScriptFiles([
-            'vendor/stickyfill.min.js',
             'makegrid.js',
             'sql.js',
             'vendor/jqplot/jquery.jqplot.js',
@@ -139,7 +139,7 @@ class ZoomSearchController extends AbstractController
 
         //Set default datalabel if not selected
         if (! isset($_POST['zoom_submit']) || $_POST['dataLabel'] == '') {
-            $dataLabel = $this->relation->getDisplayField($this->db, $this->table);
+            $dataLabel = $this->relation->getDisplayField($GLOBALS['db'], $GLOBALS['table']);
         } else {
             $dataLabel = $_POST['dataLabel'];
         }
@@ -160,11 +160,11 @@ class ZoomSearchController extends AbstractController
             return;
         }
 
-        if (! isset($goto)) {
-            $goto = Util::getScriptNameForOption($GLOBALS['cfg']['DefaultTabTable'], 'table');
+        if (! isset($GLOBALS['goto'])) {
+            $GLOBALS['goto'] = Util::getScriptNameForOption($GLOBALS['cfg']['DefaultTabTable'], 'table');
         }
 
-        $this->zoomSubmitAction($dataLabel, $goto);
+        $this->zoomSubmitAction($dataLabel, $GLOBALS['goto']);
     }
 
     /**
@@ -174,7 +174,7 @@ class ZoomSearchController extends AbstractController
     private function loadTableInfo(): void
     {
         // Gets the list and number of columns
-        $columns = $this->dbi->getColumns($this->db, $this->table, null, true);
+        $columns = $this->dbi->getColumns($GLOBALS['db'], $GLOBALS['table'], true);
         // Get details about the geometry functions
         $geom_types = Gis::getDataTypes();
 
@@ -217,7 +217,7 @@ class ZoomSearchController extends AbstractController
         }
 
         // Retrieve foreign keys
-        $this->foreigners = $this->relation->getForeigners($this->db, $this->table);
+        $this->foreigners = $this->relation->getForeigners($GLOBALS['db'], $GLOBALS['table']);
     }
 
     /**
@@ -227,10 +227,8 @@ class ZoomSearchController extends AbstractController
      */
     public function displaySelectionFormAction($dataLabel = null): void
     {
-        global $goto;
-
-        if (! isset($goto)) {
-            $goto = Util::getScriptNameForOption($GLOBALS['cfg']['DefaultTabTable'], 'table');
+        if (! isset($GLOBALS['goto'])) {
+            $GLOBALS['goto'] = Util::getScriptNameForOption($GLOBALS['cfg']['DefaultTabTable'], 'table');
         }
 
         $column_names = $this->columnNames;
@@ -249,9 +247,9 @@ class ZoomSearchController extends AbstractController
         }
 
         $this->render('table/zoom_search/index', [
-            'db' => $this->db,
-            'table' => $this->table,
-            'goto' => $goto,
+            'db' => $GLOBALS['db'],
+            'table' => $GLOBALS['table'],
+            'goto' => $GLOBALS['goto'],
             'self' => $this,
             'geom_column_flag' => $this->geomColumnFlag,
             'column_names' => $column_names,
@@ -277,13 +275,9 @@ class ZoomSearchController extends AbstractController
         $extra_data = [];
         $row_info_query = 'SELECT * FROM ' . Util::backquote($_POST['db']) . '.'
             . Util::backquote($_POST['table']) . ' WHERE ' . $_POST['where_clause'];
-        $result = $this->dbi->query(
-            $row_info_query . ';',
-            DatabaseInterface::CONNECT_USER,
-            DatabaseInterface::QUERY_STORE
-        );
-        $fields_meta = $this->dbi->getFieldsMeta($result) ?? [];
-        while ($row = $this->dbi->fetchAssoc($result)) {
+        $result = $this->dbi->query($row_info_query . ';');
+        $fields_meta = $this->dbi->getFieldsMeta($result);
+        while ($row = $result->fetchAssoc()) {
             // for bit fields we need to convert them to printable form
             $i = 0;
             foreach ($row as $col => $val) {
@@ -342,20 +336,16 @@ class ZoomSearchController extends AbstractController
         $sql_query .= ' LIMIT ' . $_POST['maxPlotLimit'];
 
         //Query execution part
-        $result = $this->dbi->query($sql_query . ';', DatabaseInterface::CONNECT_USER, DatabaseInterface::QUERY_STORE);
-        $fields_meta = $this->dbi->getFieldsMeta($result) ?? [];
+        $result = $this->dbi->query($sql_query . ';');
+        $fields_meta = $this->dbi->getFieldsMeta($result);
         $data = [];
-        while ($row = $this->dbi->fetchAssoc($result)) {
+        while ($row = $result->fetchAssoc()) {
             //Need a row with indexes as 0,1,2 for the getUniqueCondition
             // hence using a temporary array
-            $tmpRow = [];
-            foreach ($row as $val) {
-                $tmpRow[] = $val;
-            }
+            $tmpRow = array_values($row);
 
             //Get unique condition on each row (will be needed for row update)
             $uniqueCondition = Util::getUniqueCondition(
-                $result,
                 count($this->columnNames),
                 $fields_meta,
                 $tmpRow,
@@ -384,8 +374,8 @@ class ZoomSearchController extends AbstractController
         }
 
         $this->render('table/zoom_search/result_form', [
-            'db' => $this->db,
-            'table' => $this->table,
+            'db' => $GLOBALS['db'],
+            'table' => $GLOBALS['table'],
             'column_names' => $this->columnNames,
             'column_names_hashes' => $column_names_hashes,
             'foreigners' => $this->foreigners,
@@ -457,11 +447,11 @@ class ZoomSearchController extends AbstractController
             'column_name' => $this->columnNames[$column_index],
             'column_name_hash' => md5($this->columnNames[$column_index]),
             'foreign_data' => $foreignData,
-            'table' => $this->table,
+            'table' => $GLOBALS['table'],
             'column_index' => $search_index,
             'foreign_max_limit' => $GLOBALS['cfg']['ForeignKeyMaxLimit'],
             'criteria_values' => $entered_value,
-            'db' => $this->db,
+            'db' => $GLOBALS['db'],
             'in_fbs' => true,
         ]);
 

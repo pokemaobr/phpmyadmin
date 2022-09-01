@@ -58,31 +58,23 @@ class HttpRequest
 
     public function __construct()
     {
-        global $cfg;
-
-        $this->proxyUrl = $cfg['ProxyUrl'];
-        $this->proxyUser = $cfg['ProxyUser'];
-        $this->proxyPass = $cfg['ProxyPass'];
+        $this->proxyUrl = $GLOBALS['cfg']['ProxyUrl'];
+        $this->proxyUser = $GLOBALS['cfg']['ProxyUser'];
+        $this->proxyPass = $GLOBALS['cfg']['ProxyPass'];
     }
 
     public static function setProxySettingsFromEnv(): void
     {
-        global $cfg;
-
         $httpProxy = getenv('http_proxy');
         $urlInfo = parse_url((string) $httpProxy);
         if (PHP_SAPI !== 'cli' || ! is_array($urlInfo)) {
             return;
         }
 
-        $proxyUrl = ($urlInfo['host'] ?? '')
+        $GLOBALS['cfg']['ProxyUrl'] = ($urlInfo['host'] ?? '')
             . (isset($urlInfo['port']) ? ':' . $urlInfo['port'] : '');
-        $proxyUser = $urlInfo['user'] ?? '';
-        $proxyPass = $urlInfo['pass'] ?? '';
-
-        $cfg['ProxyUrl'] = $proxyUrl;
-        $cfg['ProxyUser'] = $proxyUser;
-        $cfg['ProxyPass'] = $proxyPass;
+        $GLOBALS['cfg']['ProxyUser'] = $urlInfo['user'] ?? '';
+        $GLOBALS['cfg']['ProxyPass'] = $urlInfo['pass'] ?? '';
     }
 
     /**
@@ -102,7 +94,7 @@ class HttpRequest
             ];
             if (strlen($this->proxyUser) > 0) {
                 $auth = base64_encode($this->proxyUser . ':' . $this->proxyPass);
-                $context['http']['header'] .= 'Proxy-Authorization: Basic '
+                $context['http']['header'] = 'Proxy-Authorization: Basic '
                     . $auth . "\r\n";
             }
         }

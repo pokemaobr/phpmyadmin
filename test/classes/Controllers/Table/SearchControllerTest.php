@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Controllers\Table;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Controllers\Table\SearchController;
 use PhpMyAdmin\Core;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\FieldMetadata;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\Table\Search;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Tests\AbstractTestCase;
@@ -32,8 +32,6 @@ class SearchControllerTest extends AbstractTestCase
 
     /**
      * Setup function for test cases
-     *
-     * @access protected
      */
     protected function setUp(): void
     {
@@ -51,7 +49,6 @@ class SearchControllerTest extends AbstractTestCase
         $GLOBALS['text_dir'] = 'ltr';
         $GLOBALS['PMA_PHP_SELF'] = 'index.php';
         $relation = new Relation($GLOBALS['dbi']);
-        $GLOBALS['cfgRelation'] = $relation->getRelationsParam();
         $GLOBALS['cfg']['Server']['DisableIS'] = false;
 
         $dbi = $this->getMockBuilder(DatabaseInterface::class)
@@ -114,10 +111,8 @@ class SearchControllerTest extends AbstractTestCase
         $ctrl = new SearchController(
             $this->response,
             $this->template,
-            $GLOBALS['db'],
-            $GLOBALS['table'],
             new Search($GLOBALS['dbi']),
-            new Relation($GLOBALS['dbi'], $this->template),
+            new Relation($GLOBALS['dbi']),
             $GLOBALS['dbi']
         );
 
@@ -130,8 +125,6 @@ class SearchControllerTest extends AbstractTestCase
      */
     public function testGetDataRowAction(): void
     {
-        global $containerBuilder;
-
         parent::setGlobalDbi();
         parent::loadDbiIntoContainerBuilder();
         parent::loadResponseIntoContainerBuilder();
@@ -166,11 +159,11 @@ class SearchControllerTest extends AbstractTestCase
             ]
         );
 
-        $containerBuilder->setParameter('db', 'PMA');
-        $containerBuilder->setParameter('table', 'PMA_BookMark');
+        $GLOBALS['containerBuilder']->setParameter('db', 'PMA');
+        $GLOBALS['containerBuilder']->setParameter('table', 'PMA_BookMark');
 
         /** @var SearchController $ctrl */
-        $ctrl = $containerBuilder->get(SearchController::class);
+        $ctrl = $GLOBALS['containerBuilder']->get(SearchController::class);
 
         $_POST['db'] = 'PMA';
         $_POST['table'] = 'PMA_BookMark';

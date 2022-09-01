@@ -94,6 +94,7 @@ var makeGrid = function (t, enableResize, enableReorder, enableVisib, enableGrid
                 objLeft: $(obj).position().left,
                 objWidth: $(g.t).find('th.draggable:visible').eq(n).find('span').outerWidth()
             };
+            // eslint-disable-next-line compat/compat
             $(document.body).css('cursor', 'col-resize').noSelect();
             if (g.isCellEditActive) {
                 g.hideEditCell();
@@ -133,6 +134,7 @@ var makeGrid = function (t, enableResize, enableReorder, enableVisib, enableGrid
                 objLeft: objPos.left
             };
 
+            // eslint-disable-next-line compat/compat
             $(document.body).css('cursor', 'move').noSelect();
             if (g.isCellEditActive) {
                 g.hideEditCell();
@@ -229,6 +231,7 @@ var makeGrid = function (t, enableResize, enableReorder, enableVisib, enableGrid
 
                 g.colReorder = false;
             }
+            // eslint-disable-next-line compat/compat
             $(document.body).css('cursor', 'inherit').noSelect(false);
         },
 
@@ -1722,7 +1725,7 @@ var makeGrid = function (t, enableResize, enableReorder, enableVisib, enableGrid
 
             // make sure we have more than one column
             if ($firstRowCols.length > 1) {
-                var $colVisibTh = $(g.t).find('th:not(.draggable)');
+                var $colVisibTh = $(g.t).find('th:not(.draggable)').slice(0, 1);
                 Functions.tooltip(
                     $colVisibTh,
                     'th',
@@ -1786,7 +1789,7 @@ var makeGrid = function (t, enableResize, enableReorder, enableVisib, enableGrid
             });
 
             // attach to first row first col of the grid
-            var thFirst = $(g.t).find('th.print_ignore');
+            var thFirst = $(g.t).find('th.d-print-none');
             $(thFirst).append(g.cDrop);
             $(thFirst).append(g.cList);
 
@@ -2147,12 +2150,9 @@ var makeGrid = function (t, enableResize, enableReorder, enableVisib, enableGrid
             $(g.gDiv).append(g.cEditTextarea);
 
             // add hint for grid editing feature when hovering "Edit" link in each table row
-            if (Messages.strGridEditFeatureHint !== undefined) {
-                Functions.tooltip(
-                    $(g.t).find('.edit_row_anchor a'),
-                    'a',
-                    Messages.strGridEditFeatureHint
-                );
+            const editRowAnchor = $(g.t).find('.edit_row_anchor');
+            if (editRowAnchor.attr('data-grid-edit-config') !== 'disabled') {
+                editRowAnchor.find('a').tooltip();
             }
         }
     };

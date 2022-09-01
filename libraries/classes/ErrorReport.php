@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Utils\HttpRequest;
 
 use function count;
@@ -77,7 +78,7 @@ class ErrorReport
      */
     public function getData(string $exceptionType = 'js'): array
     {
-        $relParams = $this->relation->getRelationsParam();
+        $relationParameters = $this->relation->getRelationParameters();
         // common params for both, php & js exceptions
         $report = [
             'pma_version' => Version::VERSION,
@@ -87,7 +88,7 @@ class ErrorReport
             'server_software' => $_SERVER['SERVER_SOFTWARE'] ?? null,
             'user_agent_string' => $_SERVER['HTTP_USER_AGENT'],
             'locale' => $this->config->getCookie('pma_lang'),
-            'configuration_storage' => $relParams['db'] === null ? 'disabled' : 'enabled',
+            'configuration_storage' => $relationParameters->db === null ? 'disabled' : 'enabled',
             'php_version' => PHP_VERSION,
         ];
 
@@ -202,6 +203,7 @@ class ErrorReport
         if (isset($components['query'])) {
             parse_str($components['query'], $queryArray);
             unset($queryArray['db'], $queryArray['table'], $queryArray['token'], $queryArray['server']);
+            unset($queryArray['eq']);
             $query = http_build_query($queryArray);
         } else {
             $query = '';

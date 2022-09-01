@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Server\Databases;
 
+use PhpMyAdmin\ConfigStorage\RelationCleanup;
 use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\DatabaseInterface;
 use PhpMyAdmin\Message;
-use PhpMyAdmin\RelationCleanup;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
 use PhpMyAdmin\Transformations;
@@ -17,6 +17,7 @@ use PhpMyAdmin\Util;
 use function __;
 use function _ngettext;
 use function count;
+use function is_array;
 
 final class DestroyController extends AbstractController
 {
@@ -44,19 +45,16 @@ final class DestroyController extends AbstractController
 
     public function __invoke(): void
     {
-        global $selected, $errorUrl, $cfg, $dblist, $reload;
+        $GLOBALS['selected'] = $GLOBALS['selected'] ?? null;
+        $GLOBALS['errorUrl'] = $GLOBALS['errorUrl'] ?? null;
+        $GLOBALS['dblist'] = $GLOBALS['dblist'] ?? null;
+        $GLOBALS['reload'] = $GLOBALS['reload'] ?? null;
 
-        $params = [
-            'drop_selected_dbs' => $_POST['drop_selected_dbs'] ?? null,
-            'selected_dbs' => $_POST['selected_dbs'] ?? null,
-        ];
-        /** @var Message|int $message */
-        $message = -1;
+        $selected_dbs = $_POST['selected_dbs'] ?? null;
 
         if (
-            ! isset($params['drop_selected_dbs'])
-            || ! $this->response->isAjax()
-            || (! $this->dbi->isSuperUser() && ! $cfg['AllowUserDropDatabase'])
+            ! $this->response->isAjax()
+            || (! $this->dbi->isSuperUser() && ! $GLOBALS['cfg']['AllowUserDropDatabase'])
         ) {
             $message = Message::error();
             $json = ['message' => $message];
@@ -66,7 +64,10 @@ final class DestroyController extends AbstractController
             return;
         }
 
-        if (! isset($params['selected_dbs'])) {
+        if (
+            ! is_array($selected_dbs)
+            || $selected_dbs === []
+        ) {
             $message = Message::error(__('No databases selected.'));
             $json = ['message' => $message];
             $this->response->setRequestStatus($message->isSuccess());
@@ -75,44 +76,31 @@ final class DestroyController extends AbstractController
             return;
         }
 
-        $errorUrl = Url::getFromRoute('/server/databases');
-        $selected = $_POST['selected_dbs'];
-        $rebuildDatabaseList = false;
-        $sqlQuery = '';
-        $numberOfDatabases = count($selected);
+        $GLOBALS['errorUrl'] = Url::getFromRoute('/server/databases');
+        $GLOBALS['selected'] = $selected_dbs;
+        $numberOfDatabases = count($selected_dbs);
 
-        for ($i = 0; $i < $numberOfDatabases; $i++) {
-            $this->relationCleanup->database($selected[$i]);
-            $aQuery = 'DROP DATABASE ' . Util::backquote($selected[$i]);
-            $reload = true;
-            $rebuildDatabaseList = true;
+        foreach ($selected_dbs as $database) {
+            $this->relationCleanup->database($database);
+            $aQuery = 'DROP DATABASE ' . Util::backquote($database);
+            $GLOBALS['reload'] = true;
 
-            $sqlQuery .= $aQuery . ';' . "\n";
             $this->dbi->query($aQuery);
-            $this->transformations->clear($selected[$i]);
+            $this->transformations->clear($database);
         }
 
-        if ($rebuildDatabaseList) {
-            $dblist->databases->build();
-        }
+        $GLOBALS['dblist']->databases->build();
 
-        if ($message === -1) { // no error message
-            $message = Message::success(
-                _ngettext(
-                    '%1$d database has been dropped successfully.',
-                    '%1$d databases have been dropped successfully.',
-                    $numberOfDatabases
-                )
-            );
-            $message->addParam($numberOfDatabases);
-        }
-
-        $json = [];
-        if ($message instanceof Message) {
-            $json = ['message' => $message];
-            $this->response->setRequestStatus($message->isSuccess());
-        }
-
+        $message = Message::success(
+            _ngettext(
+                '%1$d database has been dropped successfully.',
+                '%1$d databases have been dropped successfully.',
+                $numberOfDatabases
+            )
+        );
+        $message->addParam($numberOfDatabases);
+        $json = ['message' => $message];
+        $this->response->setRequestStatus($message->isSuccess());
         $this->response->addJSON($json);
     }
 }

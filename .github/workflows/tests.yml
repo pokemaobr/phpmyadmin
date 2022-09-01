@@ -11,7 +11,6 @@ on:
 jobs:
   multi-arch-tests-php:
     name: Test on PHP ${{ matrix.php-version }} (${{ matrix.arch }})
-    if: "!contains(github.event.head_commit.message, '[ci skip]')"
     runs-on: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
     strategy:
@@ -27,13 +26,14 @@ jobs:
           - { php-version: '7', experimental: false, arch: 's390x', exclude-phpunit-groups: 'extension-iconv,32bit-incompatible' }
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Write script
         # tcpdf allowed memory exhausted needs the memory_limit workaround
         # musl-locales and musl-locales-lang are needed to run some locale specific tests
         # gettext is needed to run generate-mo
         # git is needed to work around a version detection issue with composer, see: https://github.com/Roave/SecurityAdvisories/issues/76
+        # ctype for psalm
         run: |
           printf "set -exu && \
           export V='%s' && \
@@ -59,24 +59,26 @@ jobs:
 
   test-php:
     name: Test on PHP ${{ matrix.php-version }} and ${{ matrix.os }}
-    if: "!contains(github.event.head_commit.message, '[ci skip]')"
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       matrix:
-        php-version: ["7.2", "7.3", "7.4", "8.0"]
+        php-version: ["7.2", "7.3", "7.4", "8.0", "8.1"]
         experimental: [false]
         os: [ubuntu-latest]
         phpunit-options: ['--testsuite unit']
         include:
-          - php-version: '8.1'
+          - php-version: 'nightly'
             experimental: true
             os: ubuntu-latest
             phpunit-options: '--configuration test/phpunit-php-nightly.xml'
-            composer-options: '--ignore-platform-req=php'
+            composer-options: '--ignore-platform-req=php+'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          # Fetch some commits for Scrutinizer coverage upload
+          fetch-depth: 15
 
       - name: Install gettext
         run: sudo apt-get install -y gettext
@@ -108,15 +110,17 @@ jobs:
 
       - name: Send coverage to Scrutinizer
         uses: sudo-bot/action-scrutinizer@latest
-        # Upload can fail on forks
-        continue-on-error: true
+        # Do not run this step on forked versions of the main repository (example: contributor forks)
+        if: github.repository == 'phpmyadmin/phpmyadmin'
         with:
-          cli-args: "--format=php-clover build/logs/clover.xml"
+          cli-args: "--format=php-clover build/logs/clover.xml --revision=${{ github.event.pull_request.head.sha || github.sha }}"
 
       - name: Send coverage to Codacy
+        uses: codacy/codacy-coverage-reporter-action@v1
+        # Do not run this step on forked versions of the main repository (example: contributor forks)
+        if: github.repository == 'phpmyadmin/phpmyadmin'
         # Upload can fail on forks or if the secret is missing
         continue-on-error: true
-        uses: codacy/codacy-coverage-reporter-action@master
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: build/logs/clover.xml
@@ -124,7 +128,6 @@ jobs:
   test-php-optional-extensions:
     name: Test on PHP (+ ext-${{ matrix.extension }}) ${{ matrix.php-version }} and ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    if: "!contains(github.event.head_commit.message, '[ci skip]')"
     strategy:
       matrix:
         php-version: ["7.2"]
@@ -132,7 +135,10 @@ jobs:
         extension: ["dbase", "recode"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          # Fetch some commits for Scrutinizer coverage upload
+          fetch-depth: 15
 
       - name: Install gettext
         run: sudo apt-get install -y gettext
@@ -163,15 +169,17 @@ jobs:
 
       - name: Send coverage to Scrutinizer
         uses: sudo-bot/action-scrutinizer@latest
-        # Upload can fail on forks
-        continue-on-error: true
+        # Do not run this step on forked versions of the main repository (example: contributor forks)
+        if: github.repository == 'phpmyadmin/phpmyadmin'
         with:
-          cli-args: "--format=php-clover build/logs/clover.xml"
+          cli-args: "--format=php-clover build/logs/clover.xml --revision=${{ github.event.pull_request.head.sha || github.sha }}"
 
       - name: Send coverage to Codacy
+        uses: codacy/codacy-coverage-reporter-action@v1
+        # Do not run this step on forked versions of the main repository (example: contributor forks)
+        if: github.repository == 'phpmyadmin/phpmyadmin'
         # Upload can fail on forks or if the secret is missing
         continue-on-error: true
-        uses: codacy/codacy-coverage-reporter-action@master
         with:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: build/logs/clover.xml
@@ -179,10 +187,9 @@ jobs:
   test-js:
     name: Test javascript files
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[ci skip]')"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Set up Node
         uses: actions/setup-node@v1
@@ -194,7 +201,7 @@ jobs:
         run: echo "::set-output name=dir::$(yarn cache dir)"
 
       - name: Cache Yarn dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}

@@ -7,7 +7,6 @@
  * @test-module Sql
  */
 
-/* global Stickyfill */
 /* global isStorageSupported */ // js/config.js
 /* global codeMirrorEditor */ // js/functions.js
 /* global makeGrid */ // js/makegrid.js
@@ -203,7 +202,6 @@ AJAX.registerTeardown('sql.js', function () {
     $(document).off('click', 'th.column_heading.marker');
     $(document).off('scroll', window);
     $(document).off('keyup', '.filter_rows');
-    $(document).off('click', '#printView');
     if (codeMirrorEditor) {
         codeMirrorEditor.off('change');
     } else {
@@ -380,11 +378,14 @@ AJAX.registerOnload('sql.js', function () {
         textArea.value += '\n';
         $('.table_results tbody tr').each(function () {
             $(this).find('.data span').each(function () {
-                textArea.value += $(this).text() + '\t';
+                // Extract <em> tag for NULL values before converting to string to not mess up formatting
+                var data = $(this).find('em').length !== 0 ? $(this).find('em')[0] : this;
+                textArea.value += $(data).text() + '\t';
             });
             textArea.value += '\n';
         });
 
+        // eslint-disable-next-line compat/compat
         document.body.appendChild(textArea);
 
         textArea.select();
@@ -395,18 +396,9 @@ AJAX.registerOnload('sql.js', function () {
             alert('Sorry! Unable to copy');
         }
 
+        // eslint-disable-next-line compat/compat
         document.body.removeChild(textArea);
     }); // end of Copy to Clipboard action
-
-    /**
-     * Attach Event Handler for 'Print' link
-     */
-    $(document).on('click', '#printView', function (event) {
-        event.preventDefault();
-
-        // Take to preview mode
-        Functions.printPreview();
-    }); // end of 'Print' action
 
     /**
      * Attach the {@link makegrid} function to a custom event, which will be
@@ -751,12 +743,11 @@ AJAX.registerOnload('sql.js', function () {
         var $msgbox = Functions.ajaxShowMessage();
         $.ajax({
             type: 'POST',
-            url: $form.attr('action'),
+            url: 'index.php?route=/import/simulate-dml',
             data: {
                 'server': CommonParams.get('server'),
                 'db': dbName,
                 'ajax_request': '1',
-                'simulate_dml': '1',
                 'sql_query': query,
                 'sql_delimiter': delimiter
             },
@@ -1097,9 +1088,3 @@ AJAX.registerOnload('sql.js', function () {
     Sql.makeProfilingChart();
     Sql.initProfilingTables();
 });
-
-/**
- * Polyfill to make table headers sticky.
- */
-var elements = $('.sticky');
-Stickyfill.add(elements);

@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Controllers\Export\Template;
 
+use PhpMyAdmin\ConfigStorage\Relation;
 use PhpMyAdmin\Controllers\AbstractController;
 use PhpMyAdmin\Export\TemplateModel;
 use PhpMyAdmin\Http\ServerRequest;
-use PhpMyAdmin\Relation;
 use PhpMyAdmin\ResponseRenderer;
 use PhpMyAdmin\Template;
-
-use function is_string;
 
 final class DeleteController extends AbstractController
 {
@@ -34,23 +32,21 @@ final class DeleteController extends AbstractController
 
     public function __invoke(ServerRequest $request): void
     {
-        global $cfg;
-
         $templateId = (int) $request->getParsedBodyParam('templateId');
-        $cfgRelation = $this->relation->getRelationsParam();
 
-        if (! $cfgRelation['exporttemplateswork']) {
+        $exportTemplatesFeature = $this->relation->getRelationParameters()->exportTemplatesFeature;
+        if ($exportTemplatesFeature === null) {
             return;
         }
 
         $result = $this->model->delete(
-            $cfgRelation['db'],
-            $cfgRelation['export_templates'],
-            $cfg['Server']['user'],
+            $exportTemplatesFeature->database,
+            $exportTemplatesFeature->exportTemplates,
+            $GLOBALS['cfg']['Server']['user'],
             $templateId
         );
 
-        if (is_string($result)) {
+        if ($result !== '') {
             $this->response->setRequestStatus(false);
             $this->response->addJSON('message', $result);
 

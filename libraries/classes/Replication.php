@@ -7,6 +7,8 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
+use PhpMyAdmin\Dbal\ResultInterface;
+
 use function explode;
 use function mb_strtoupper;
 
@@ -34,7 +36,7 @@ class Replication
     }
 
     /**
-     * Configures replication slave
+     * Configures replication replica
      *
      * @param string      $action  possible values: START or STOP
      * @param string|null $control default: null,
@@ -43,12 +45,10 @@ class Replication
      *                             SQL_THREAD and IO_THREAD
      * @param int         $link    mysql link
      *
-     * @return mixed|int output of DatabaseInterface::tryQuery
+     * @return ResultInterface|false|int output of DatabaseInterface::tryQuery
      */
-    public function slaveControl(string $action, ?string $control, int $link)
+    public function replicaControl(string $action, ?string $control, int $link)
     {
-        global $dbi;
-
         $action = mb_strtoupper($action);
         $control = $control !== null ? mb_strtoupper($control) : '';
 
@@ -60,25 +60,24 @@ class Replication
             return -1;
         }
 
-        return $dbi->tryQuery($action . ' SLAVE ' . $control . ';', $link);
+        return $GLOBALS['dbi']->tryQuery($action . ' SLAVE ' . $control . ';', $link);
     }
 
     /**
-     * Changes master for replication slave
+     * Changes primary for replication replica
      *
-     * @param string $user     replication user on master
+     * @param string $user     replication user on primary
      * @param string $password password for the user
-     * @param string $host     master's hostname or IP
+     * @param string $host     primary's hostname or IP
      * @param int    $port     port, where mysql is running
-     * @param array  $pos      position of mysql replication,
-     *                         array should contain fields File and Position
-     * @param bool   $stop     shall we stop slave?
-     * @param bool   $start    shall we start slave?
+     * @param array  $pos      position of mysql replication, array should contain fields File and Position
+     * @param bool   $stop     shall we stop replica?
+     * @param bool   $start    shall we start replica?
      * @param int    $link     mysql link
      *
-     * @return string output of CHANGE MASTER mysql command
+     * @return ResultInterface|false output of CHANGE MASTER mysql command
      */
-    public function slaveChangeMaster(
+    public function replicaChangePrimary(
         $user,
         $password,
         $host,
@@ -88,13 +87,11 @@ class Replication
         bool $start,
         int $link
     ) {
-        global $dbi;
-
         if ($stop) {
-            $this->slaveControl('STOP', null, $link);
+            $this->replicaControl('STOP', null, $link);
         }
 
-        $out = $dbi->tryQuery(
+        $out = $GLOBALS['dbi']->tryQuery(
             'CHANGE MASTER TO ' .
             'MASTER_HOST=\'' . $host . '\',' .
             'MASTER_PORT=' . ($port * 1) . ',' .
@@ -106,7 +103,7 @@ class Replication
         );
 
         if ($start) {
-            $this->slaveControl('START', null, $link);
+            $this->replicaControl('START', null, $link);
         }
 
         return $out;
@@ -123,15 +120,13 @@ class Replication
      *
      * @return mixed mysql link on success
      */
-    public function connectToMaster(
+    public function connectToPrimary(
         $user,
         $password,
         $host = null,
         $port = null,
         $socket = null
     ) {
-        global $dbi;
-
         $server = [];
         $server['user'] = $user;
         $server['password'] = $password;
@@ -141,23 +136,21 @@ class Replication
 
         // 5th parameter set to true means that it's an auxiliary connection
         // and we must not go back to login page if it fails
-        return $dbi->connect(DatabaseInterface::CONNECT_AUXILIARY, $server);
+        return $GLOBALS['dbi']->connect(DatabaseInterface::CONNECT_AUXILIARY, $server);
     }
 
     /**
-     * Fetches position and file of current binary log on master
+     * Fetches position and file of current binary log on primary
      *
      * @param int $link mysql link
      *
      * @return array an array containing File and Position in MySQL replication
-     * on master server, useful for slaveChangeMaster()
+     * on primary server, useful for {@see Replication::replicaChangePrimary()}.
      * @phpstan-return array{'File'?: string, 'Position'?: string}
      */
-    public function slaveBinLogMaster(int $link): array
+    public function replicaBinLogPrimary(int $link): array
     {
-        global $dbi;
-
-        $data = $dbi->fetchResult('SHOW MASTER STATUS', null, null, $link);
+        $data = $GLOBALS['dbi']->fetchResult('SHOW MASTER STATUS', null, null, $link);
         $output = [];
 
         if (! empty($data)) {

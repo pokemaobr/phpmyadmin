@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin;
 
-use mysqli_result;
+use PhpMyAdmin\ConfigStorage\Relation;
+use PhpMyAdmin\Dbal\ResultInterface;
 
 use function count;
 use function sprintf;
@@ -34,13 +35,12 @@ class SystemDatabase
      *
      * @param string $db Database name looking for
      *
-     * @return mysqli_result|false Result of executed SQL query
+     * @return ResultInterface|false Result of executed SQL query
      */
     public function getExistingTransformationData($db)
     {
-        $cfgRelation = $this->relation->getRelationsParam();
-
-        if (! $cfgRelation['mimework']) {
+        $browserTransformationFeature = $this->relation->getRelationParameters()->browserTransformationFeature;
+        if ($browserTransformationFeature === null) {
             return false;
         }
 
@@ -48,8 +48,8 @@ class SystemDatabase
         // from pma__column_info table
         $transformationSql = sprintf(
             "SELECT * FROM %s.%s WHERE `db_name` = '%s'",
-            Util::backquote($cfgRelation['db']),
-            Util::backquote($cfgRelation['column_info']),
+            Util::backquote($browserTransformationFeature->database),
+            Util::backquote($browserTransformationFeature->columnInfo),
             $this->dbi->escapeString($db)
         );
 
@@ -59,20 +59,23 @@ class SystemDatabase
     /**
      * Get SQL query for store new transformation details of a VIEW
      *
-     * @param object $transformationData Result set of SQL execution
-     * @param array  $columnMap          Details of VIEW columns
-     * @param string $viewName           Name of the VIEW
-     * @param string $db                 Database name of the VIEW
+     * @param ResultInterface $transformationData Result set of SQL execution
+     * @param array           $columnMap          Details of VIEW columns
+     * @param string          $viewName           Name of the VIEW
+     * @param string          $db                 Database name of the VIEW
      *
      * @return string SQL query for new transformations
      */
     public function getNewTransformationDataSql(
-        $transformationData,
+        ResultInterface $transformationData,
         array $columnMap,
         $viewName,
         $db
     ) {
-        $cfgRelation = $this->relation->getRelationsParam();
+        $browserTransformationFeature = $this->relation->getRelationParameters()->browserTransformationFeature;
+        if ($browserTransformationFeature === null) {
+            return '';
+        }
 
         // Need to store new transformation details for VIEW
         $newTransformationsSql = sprintf(
@@ -80,14 +83,14 @@ class SystemDatabase
             . '`db_name`, `table_name`, `column_name`, '
             . '`comment`, `mimetype`, `transformation`, '
             . '`transformation_options`) VALUES',
-            Util::backquote($cfgRelation['db']),
-            Util::backquote($cfgRelation['column_info'])
+            Util::backquote($browserTransformationFeature->database),
+            Util::backquote($browserTransformationFeature->columnInfo)
         );
 
         $columnCount = 0;
         $addComma = false;
 
-        while ($dataRow = $this->dbi->fetchAssoc($transformationData)) {
+        while ($dataRow = $transformationData->fetchAssoc()) {
             foreach ($columnMap as $column) {
                 if (
                     $dataRow['table_name'] != $column['table_name']

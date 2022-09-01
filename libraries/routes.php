@@ -16,8 +16,7 @@ use PhpMyAdmin\Controllers\Export;
 use PhpMyAdmin\Controllers\GisDataEditorController;
 use PhpMyAdmin\Controllers\GitInfoController;
 use PhpMyAdmin\Controllers\HomeController;
-use PhpMyAdmin\Controllers\ImportController;
-use PhpMyAdmin\Controllers\ImportStatusController;
+use PhpMyAdmin\Controllers\Import;
 use PhpMyAdmin\Controllers\LicenseController;
 use PhpMyAdmin\Controllers\LintController;
 use PhpMyAdmin\Controllers\LogoutController;
@@ -97,7 +96,7 @@ return static function (RouteCollector $routes): void {
             $routes->post('/drop-table', Database\Structure\DropTableController::class);
             $routes->post('/empty-form', Database\Structure\EmptyFormController::class);
             $routes->post('/empty-table', Database\Structure\EmptyTableController::class);
-            $routes->addRoute(['GET', 'POST'], '/favorite-table', Database\Structure\FavoriteTableController::class);
+            $routes->post('/favorite-table', Database\Structure\FavoriteTableController::class);
             $routes->addRoute(['GET', 'POST'], '/real-row-count', Database\Structure\RealRowCountController::class);
             $routes->post('/replace-prefix', Database\Structure\ReplacePrefixController::class);
             $routes->post('/show-create', Database\Structure\ShowCreateController::class);
@@ -120,8 +119,11 @@ return static function (RouteCollector $routes): void {
     });
     $routes->addRoute(['GET', 'POST'], '/gis-data-editor', GisDataEditorController::class);
     $routes->addRoute(['GET', 'POST'], '/git-revision', GitInfoController::class);
-    $routes->addRoute(['GET', 'POST'], '/import', ImportController::class);
-    $routes->addRoute(['GET', 'POST'], '/import-status', ImportStatusController::class);
+    $routes->addGroup('/import', static function (RouteCollector $routes): void {
+        $routes->addRoute(['GET', 'POST'], '', Import\ImportController::class);
+        $routes->post('/simulate-dml', Import\SimulateDmlController::class);
+    });
+    $routes->addRoute(['GET', 'POST'], '/import-status', Import\StatusController::class);
     $routes->get('/license', LicenseController::class);
     $routes->addRoute(['GET', 'POST'], '/lint', LintController::class);
     $routes->addRoute(['GET', 'POST'], '/logout', LogoutController::class);

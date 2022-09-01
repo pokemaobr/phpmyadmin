@@ -4,7 +4,7 @@ const GitInfo = {
      * @param {string} str
      * @return {number | false}
      */
-    parseVersionString: function (str) {
+    parseVersionString: str => {
         if (typeof(str) !== 'string') {
             return false;
         }
@@ -12,13 +12,13 @@ const GitInfo = {
         // Parse possible alpha/beta/rc/
         const state = str.split('-');
         if (state.length >= 2) {
-            if (state[1].substr(0, 2) === 'rc') {
-                add = - 20 - parseInt(state[1].substr(2), 10);
-            } else if (state[1].substr(0, 4) === 'beta') {
-                add =  - 40 - parseInt(state[1].substr(4), 10);
-            } else if (state[1].substr(0, 5) === 'alpha') {
-                add =  - 60 - parseInt(state[1].substr(5), 10);
-            } else if (state[1].substr(0, 3) === 'dev') {
+            if (state[1].startsWith('rc')) {
+                add = - 20 - parseInt(state[1].substring(2), 10);
+            } else if (state[1].startsWith('beta')) {
+                add =  - 40 - parseInt(state[1].substring(4), 10);
+            } else if (state[1].startsWith('alpha')) {
+                add =  - 60 - parseInt(state[1].substring(5), 10);
+            } else if (state[1].startsWith('dev')) {
                 /* We don't handle dev, it's git snapshot */
                 add = 0;
             }
@@ -37,7 +37,7 @@ const GitInfo = {
      * Indicates current available version on main page.
      * @param {object} data
      */
-    currentVersion: function (data) {
+    currentVersion: data => {
         if (data && data.version && data.date) {
             const current = GitInfo.parseVersionString($('span.version').text());
             const latest = GitInfo.parseVersionString(data.version);
@@ -96,7 +96,7 @@ const GitInfo = {
     /**
      * Loads Git revision data from ajax for index.php
      */
-    displayGitRevision: function () {
+    displayGitRevision: () => {
         $('#is_git_revision').remove();
         $('#li_pma_version_git').remove();
         $.get(
@@ -106,30 +106,22 @@ const GitInfo = {
                 'ajax_request': true,
                 'no_debug': true
             },
-            function (data) {
+            data => {
                 if (typeof data !== 'undefined' && data.success === true) {
                     $(data.message).insertAfter('#li_pma_version');
                 }
             }
         );
-    }
-};
-
-AJAX.registerTeardown('home.js', function () {
-    $('#themesModal').off('show.bs.modal');
-});
-
-AJAX.registerOnload('home.js', function () {
-    $('#themesModal').on('show.bs.modal', function () {
-        $.get('index.php?route=/themes', function (data) {
-            $('#themesModal .modal-body').html(data.themes);
-        });
-    });
+    },
 
     /**
      * Load version information asynchronously.
      */
-    if ($('li.jsversioncheck').length > 0) {
+    loadVersion: () => {
+        if ($('li.jsversioncheck').length === 0) {
+            return;
+        }
+
         $.ajax({
             dataType: 'json',
             url: 'index.php?route=/version-check',
@@ -139,9 +131,35 @@ AJAX.registerOnload('home.js', function () {
             },
             success: GitInfo.currentVersion
         });
-    }
+    },
 
-    if ($('#is_git_revision').length > 0) {
+    showVersion: () => {
+        GitInfo.loadVersion();
+        if ($('#is_git_revision').length === 0) {
+            return;
+        }
+
         setTimeout(GitInfo.displayGitRevision, 10);
     }
+};
+
+/**
+ * @implements EventListener
+ */
+const ThemesManager = {
+    handleEvent: () => {
+        $.get('index.php?route=/themes', data => {
+            $('#themesModal .modal-body').html(data.themes);
+        });
+    }
+};
+
+AJAX.registerTeardown('home.js', () => {
+    $('#themesModal').off('show.bs.modal');
+});
+
+AJAX.registerOnload('home.js', () => {
+    $('#themesModal').on('show.bs.modal', ThemesManager.handleEvent);
+
+    GitInfo.showVersion();
 });

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Twig;
 
-use PhpMyAdmin\Relation;
+use PhpMyAdmin\ConfigStorage\Relation;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -17,9 +17,7 @@ class RelationExtension extends AbstractExtension
      */
     public function getFunctions()
     {
-        global $dbi;
-
-        $relation = new Relation($dbi);
+        $relation = new Relation($GLOBALS['dbi']);
 
         return [
             new TwigFunction(

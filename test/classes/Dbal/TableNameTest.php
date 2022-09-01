@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace PhpMyAdmin\Tests\Dbal;
 
-use InvalidArgumentException;
+use PhpMyAdmin\Dbal\InvalidTableName;
 use PhpMyAdmin\Dbal\TableName;
 use PHPUnit\Framework\TestCase;
 
@@ -12,37 +12,53 @@ use function str_repeat;
 
 /**
  * @covers \PhpMyAdmin\Dbal\TableName
+ * @covers \PhpMyAdmin\Dbal\InvalidTableName
  */
 class TableNameTest extends TestCase
 {
-    public function testEmptyName(): void
+    /**
+     * @dataProvider providerForTestValidNames
+     */
+    public function testValidName(string $validName): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Expected a different value than "".');
-        TableName::fromString('');
+        $name = TableName::fromValue($validName);
+        $this->assertEquals($validName, $name->getName());
+        $this->assertEquals($validName, (string) $name);
     }
 
-    public function testNameWithTrailingWhitespace(): void
+    /**
+     * @return iterable<int, string[]>
+     */
+    public function providerForTestValidNames(): iterable
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Expected a value not to end with " ". Got: "a "');
-        TableName::fromString('a ');
+        yield ['name'];
+        yield ['0'];
+        yield [str_repeat('a', 64)];
     }
 
-    public function testLongName(): void
+    /**
+     * @param mixed $name
+     *
+     * @dataProvider providerForTestInvalidNames
+     */
+    public function testInvalidNames($name, string $exceptionMessage): void
     {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage(
-            'Expected a value to contain at most 64 characters. Got: '
-            . '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'
-        );
-        TableName::fromString(str_repeat('a', 65));
+        $this->expectException(InvalidTableName::class);
+        $this->expectExceptionMessage($exceptionMessage);
+        TableName::fromValue($name);
     }
 
-    public function testValidName(): void
+    /**
+     * @return iterable<string, mixed[]>
+     * @psalm-return iterable<string, array{mixed, non-empty-string}>
+     */
+    public function providerForTestInvalidNames(): iterable
     {
-        $name = TableName::fromString('name');
-        $this->assertEquals('name', $name->getName());
-        $this->assertEquals('name', (string) $name);
+        yield 'null' => [null, 'The table name must be a non-empty string.'];
+        yield 'integer' => [1, 'The table name must be a non-empty string.'];
+        yield 'array' => [['table'], 'The table name must be a non-empty string.'];
+        yield 'empty string' => ['', 'The table name must be a non-empty string.'];
+        yield 'too long name' => [str_repeat('a', 65), 'The table name cannot be longer than 64 characters.'];
+        yield 'trailing space' => ['a ', 'The table name cannot end with a space character.'];
     }
 }

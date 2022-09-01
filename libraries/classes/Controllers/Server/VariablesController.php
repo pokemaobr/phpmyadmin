@@ -36,10 +36,10 @@ class VariablesController extends AbstractController
 
     public function __invoke(): void
     {
-        global $errorUrl;
+        $GLOBALS['errorUrl'] = $GLOBALS['errorUrl'] ?? null;
 
         $params = ['filter' => $_GET['filter'] ?? null];
-        $errorUrl = Url::getFromRoute('/');
+        $GLOBALS['errorUrl'] = Url::getFromRoute('/');
 
         if ($this->dbi->isSuperUser()) {
             $this->dbi->selectDb('mysql');
@@ -52,12 +52,9 @@ class VariablesController extends AbstractController
         $variables = [];
         $serverVarsResult = $this->dbi->tryQuery('SHOW SESSION VARIABLES;');
         if ($serverVarsResult !== false) {
-            $serverVarsSession = [];
-            while ($arr = $this->dbi->fetchRow($serverVarsResult)) {
-                $serverVarsSession[$arr[0]] = $arr[1];
-            }
+            $serverVarsSession = $serverVarsResult->fetchAllKeyPair();
 
-            $this->dbi->freeResult($serverVarsResult);
+            unset($serverVarsResult);
 
             $serverVars = $this->dbi->fetchResult('SHOW GLOBAL VARIABLES;', 0, 1);
 

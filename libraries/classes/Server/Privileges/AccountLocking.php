@@ -35,11 +35,11 @@ final class AccountLocking
             $this->dbi->escapeString($user),
             $this->dbi->escapeString($host)
         );
-        if ($this->dbi->tryQuery($statement) === true) {
+        if ($this->dbi->tryQuery($statement) !== false) {
             return;
         }
 
-        throw new Exception((string) $this->dbi->getError());
+        throw new Exception($this->dbi->getError());
     }
 
     /**
@@ -56,10 +56,10 @@ final class AccountLocking
             $this->dbi->escapeString($user),
             $this->dbi->escapeString($host)
         );
-        if ($this->dbi->tryQuery($statement) === true) {
+        if ($this->dbi->tryQuery($statement) !== false) {
             return;
         }
 
-        throw new Exception((string) $this->dbi->getError());
+        throw new Exception($this->dbi->getError());
     }
 }

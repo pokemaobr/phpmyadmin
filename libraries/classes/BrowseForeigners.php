@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace PhpMyAdmin;
 
 use function __;
+use function array_keys;
 use function asort;
 use function ceil;
 use function floor;
@@ -38,14 +39,12 @@ class BrowseForeigners
      */
     public function __construct(Template $template)
     {
-        global $cfg;
-
         $this->template = $template;
 
-        $this->limitChars = (int) $cfg['LimitChars'];
-        $this->maxRows = (int) $cfg['MaxRows'];
-        $this->repeatCells = (int) $cfg['RepeatCells'];
-        $this->showAll = (bool) $cfg['ShowAll'];
+        $this->limitChars = (int) $GLOBALS['cfg']['LimitChars'];
+        $this->maxRows = (int) $GLOBALS['cfg']['MaxRows'];
+        $this->repeatCells = (int) $GLOBALS['cfg']['RepeatCells'];
+        $this->showAll = (bool) $GLOBALS['cfg']['ShowAll'];
     }
 
     /**
@@ -70,7 +69,7 @@ class BrowseForeigners
         int $indexByDescription,
         string $currentValue
     ): array {
-        global $theme;
+        $GLOBALS['theme'] = $GLOBALS['theme'] ?? null;
 
         $horizontalCount++;
         $output = '';
@@ -125,7 +124,7 @@ class BrowseForeigners
         ]);
 
         $output .= '<td width="20%"><img src="'
-            . ($theme instanceof Theme ? $theme->getImgPath('spacer.png') : '')
+            . ($GLOBALS['theme'] instanceof Theme ? $GLOBALS['theme']->getImgPath('spacer.png') : '')
             . '" alt="" width="1" height="1"></td>';
 
         $output .= $this->template->render('table/browse_foreigners/column_element', [
@@ -245,7 +244,7 @@ class BrowseForeigners
         $horizontalCount = 0;
         $indexByDescription = 0;
 
-        foreach ($keys as $indexByKeyname => $value) {
+        foreach (array_keys($keys) as $indexByKeyname) {
             [
                 $html,
                 $horizontalCount,

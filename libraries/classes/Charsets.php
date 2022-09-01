@@ -27,7 +27,7 @@ class Charsets
     /**
      * MySQL charsets map
      *
-     * @var array
+     * @var array<string, string>
      */
     public static $mysqlCharsetMap = [
         'big5' => 'big5',
@@ -94,11 +94,9 @@ class Charsets
         $res = $dbi->query($sql);
 
         self::$charsets = [];
-        while ($row = $dbi->fetchAssoc($res)) {
+        foreach ($res as $row) {
             self::$charsets[$row['Charset']] = Charset::fromServer($row);
         }
-
-        $dbi->freeResult($res);
 
         ksort(self::$charsets, SORT_STRING);
     }
@@ -131,11 +129,9 @@ class Charsets
         $res = $dbi->query($sql);
 
         self::$collations = [];
-        while ($row = $dbi->fetchAssoc($res)) {
+        foreach ($res as $row) {
             self::$collations[$row['Charset']][$row['Collation']] = Collation::fromServer($row);
         }
-
-        $dbi->freeResult($res);
 
         foreach (array_keys(self::$collations) as $charset) {
             ksort(self::$collations[$charset], SORT_STRING);
@@ -192,7 +188,7 @@ class Charsets
      * @param DatabaseInterface $dbi       DatabaseInterface instance
      * @param bool              $disableIs Disable use of INFORMATION_SCHEMA
      *
-     * @return array
+     * @return array<string, Charset>
      */
     public static function getCharsets(DatabaseInterface $dbi, bool $disableIs): array
     {
@@ -207,7 +203,7 @@ class Charsets
      * @param DatabaseInterface $dbi       DatabaseInterface instance
      * @param bool              $disableIs Disable use of INFORMATION_SCHEMA
      *
-     * @return array
+     * @return array<string, array<string, Collation>>
      */
     public static function getCollations(DatabaseInterface $dbi, bool $disableIs): array
     {
@@ -223,12 +219,7 @@ class Charsets
      */
     public static function findCollationByName(DatabaseInterface $dbi, bool $disableIs, ?string $name): ?Collation
     {
-        $pieces = explode('_', (string) $name);
-        if ($pieces === false || ! isset($pieces[0])) {
-            return null;
-        }
-
-        $charset = $pieces[0];
+        $charset = explode('_', $name ?? '')[0];
         $collations = self::getCollations($dbi, $disableIs);
 
         return $collations[$charset][$name] ?? null;

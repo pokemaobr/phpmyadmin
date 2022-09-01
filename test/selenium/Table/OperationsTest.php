@@ -6,8 +6,6 @@ namespace PhpMyAdmin\Tests\Selenium\Table;
 
 use PhpMyAdmin\Tests\Selenium\TestBase;
 
-use function sleep;
-
 /**
  * @coversNothing
  */
@@ -126,8 +124,6 @@ class OperationsTest extends TestBase
         $this->byName('comment')->sendKeys('foobar');
 
         $this->scrollIntoView('tableOptionsForm');
-        sleep(1);
-        $this->scrollIntoView('tableOptionsForm');
         $this->waitUntilElementIsVisible('cssSelector', 'form#tableOptionsForm', 30);
         $this->byCssSelector("form#tableOptionsForm input[type='submit']")->click();
         $this->waitAjax();
@@ -156,12 +152,10 @@ class OperationsTest extends TestBase
     public function testCopyTable(): void
     {
         $this->scrollIntoView('copyTable');
-        sleep(1);
-        $this->scrollIntoView('copyTable');
         $this->waitUntilElementIsVisible('cssSelector', 'form#copyTable', 30);
         $this->byCssSelector("form#copyTable input[name='new_name']")->sendKeys('2');
         $this->byCssSelector('label[for="whatRadio2"]')->click();
-        $this->byCssSelector("form#copyTable input[type='submit']")->click();
+        $this->waitForElement('cssSelector', 'form#copyTable input[type=\'submit\']')->click();
         $this->waitAjax();
 
         $this->waitForElement(
@@ -189,11 +183,9 @@ class OperationsTest extends TestBase
     public function testTruncateTable(): void
     {
         $this->scrollToBottom();
-        sleep(1);
-        $this->scrollToBottom();
         $this->waitUntilElementIsVisible('id', 'drop_tbl_anchor', 30);
         $this->byId('truncate_tbl_anchor')->click();
-        $this->byCssSelector('button.submitOK')->click();
+        $this->waitForElement('id', 'functionConfirmOkButton')->click();
         $this->waitAjax();
 
         $this->waitForElement(
@@ -219,10 +211,8 @@ class OperationsTest extends TestBase
     {
         $dropLink = $this->waitUntilElementIsVisible('partialLinkText', 'Delete the table (DROP)', 30);
         $this->scrollToBottom();
-        sleep(1);
-        $this->scrollToBottom();
         $dropLink->click();
-        $this->byCssSelector('button.submitOK')->click();
+        $this->waitForElement('id', 'functionConfirmOkButton')->click();
         $this->waitAjax();
 
         $this->waitForElement(

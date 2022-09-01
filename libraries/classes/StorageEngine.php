@@ -100,22 +100,19 @@ class StorageEngine
      *
      * @static
      * @staticvar array $storage_engines storage engines
-     * @access public
      */
     public static function getStorageEngines()
     {
-        global $dbi;
-
         static $storage_engines = null;
 
         if ($storage_engines == null) {
-            $storage_engines = $dbi->fetchResult('SHOW STORAGE ENGINES', 'Engine');
-            if ($dbi->getVersion() >= 50708) {
+            $storage_engines = $GLOBALS['dbi']->fetchResult('SHOW STORAGE ENGINES', 'Engine');
+            if (! $GLOBALS['dbi']->isMariaDB() && $GLOBALS['dbi']->getVersion() >= 50708) {
                 $disabled = (string) SessionCache::get(
                     'disabled_storage_engines',
                     /** @return mixed|false */
-                    static function () use ($dbi) {
-                        return $dbi->fetchValue(
+                    static function () {
+                        return $GLOBALS['dbi']->fetchValue(
                             'SELECT @@disabled_storage_engines'
                         );
                     }
@@ -142,14 +139,13 @@ class StorageEngine
      */
     public static function hasMroongaEngine(): bool
     {
-        global $dbi;
         $cacheKey = 'storage-engine.mroonga.has.mroonga_command';
 
         if (Cache::has($cacheKey)) {
             return (bool) Cache::get($cacheKey, false);
         }
 
-        $supportsMroonga = $dbi->tryQuery('SELECT mroonga_command(\'object_list\');') !== false;
+        $supportsMroonga = $GLOBALS['dbi']->tryQuery('SELECT mroonga_command(\'object_list\');') !== false;
         Cache::set($cacheKey, $supportsMroonga);
 
         return $supportsMroonga;
@@ -165,13 +161,15 @@ class StorageEngine
      */
     public static function getMroongaLengths(string $dbName, string $tableName): array
     {
-        global $dbi;
         $cacheKey = 'storage-engine.mroonga.object_list.' . $dbName;
 
-        $dbi->selectDb($dbName);// Needed for mroonga_command calls
+        $GLOBALS['dbi']->selectDb($dbName);// Needed for mroonga_command calls
 
         if (! Cache::has($cacheKey)) {
-            $result = $dbi->fetchSingleRow('SELECT mroonga_command(\'object_list\');', 'NUM');
+            $result = $GLOBALS['dbi']->fetchSingleRow(
+                'SELECT mroonga_command(\'object_list\');',
+                DatabaseInterface::FETCH_NUM
+            );
             $objectList = (array) json_decode($result[0] ?? '', true);
             foreach ($objectList as $mroongaName => $mroongaData) {
                 /**
@@ -201,7 +199,10 @@ class StorageEngine
                 continue;
             }
 
-            $result = $dbi->fetchSingleRow('SELECT mroonga_command(\'object_inspect ' . $mroongaName . '\');', 'NUM');
+            $result = $GLOBALS['dbi']->fetchSingleRow(
+                'SELECT mroonga_command(\'object_inspect ' . $mroongaName . '\');',
+                DatabaseInterface::FETCH_NUM
+            );
             $decodedData = json_decode($result[0] ?? '', true);
             if ($decodedData === null) {
                 // Invalid for some strange reason, maybe query failed
@@ -398,8 +399,6 @@ class StorageEngine
      */
     public function getVariablesStatus()
     {
-        global $dbi;
-
         $variables = $this->getVariables();
         $like = $this->getVariablesLikePattern();
 
@@ -412,8 +411,8 @@ class StorageEngine
         $mysql_vars = [];
 
         $sql_query = 'SHOW GLOBAL VARIABLES ' . $like . ';';
-        $res = $dbi->query($sql_query);
-        while ($row = $dbi->fetchAssoc($res)) {
+        $res = $GLOBALS['dbi']->query($sql_query);
+        foreach ($res as $row) {
             if (isset($variables[$row['Variable_name']])) {
                 $mysql_vars[$row['Variable_name']] = $variables[$row['Variable_name']];
             } elseif (! $like && mb_stripos($row['Variable_name'], $this->engine) !== 0) {
@@ -432,8 +431,6 @@ class StorageEngine
 
             $mysql_vars[$row['Variable_name']]['type'] = self::DETAILS_TYPE_PLAINTEXT;
         }
-
-        $dbi->freeResult($res);
 
         return $mysql_vars;
     }
